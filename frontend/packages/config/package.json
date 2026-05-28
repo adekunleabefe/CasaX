@@ -1,0 +1,16 @@
+{
+  "name": "@casax/config",
+  "version": "0.0.1",
+  "private": true,
+  "exports": {
+    "./site": "./src/site.ts",
+    "./tsconfig/*": "./tsconfig/*"
+  },
+  "scripts": {
+    "typecheck": "tsc --noEmit -p tsconfig.json",
+    "lint": "tsc --noEmit -p tsconfig.json"
+  },
+  "devDependencies": {
+    "typescript": "^5.8.3"
+  }
+}

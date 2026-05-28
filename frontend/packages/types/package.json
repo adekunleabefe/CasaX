@@ -1,0 +1,17 @@
+{
+  "name": "@casax/types",
+  "version": "0.0.1",
+  "private": true,
+  "types": "./src/index.ts",
+  "exports": {
+    ".": "./src/index.ts"
+  },
+  "scripts": {
+    "typecheck": "tsc --noEmit -p tsconfig.json",
+    "lint": "tsc --noEmit -p tsconfig.json"
+  },
+  "devDependencies": {
+    "@casax/config": "workspace:*",
+    "typescript": "^5.8.3"
+  }
+}

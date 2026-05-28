@@ -1,0 +1,37 @@
+# dependencies
+node_modules
+
+# next
+.next
+out
+
+# builds
+dist
+build
+
+# env
+.env
+.env.local
+.env.production
+.env.development
+
+# logs
+logs
+*.log
+npm-debug.log*
+pnpm-debug.log*
+
+# macOS
+.DS_Store
+
+# turbo
+.turbo
+
+# prisma
+prisma/dev.db
+
+# coverage
+coverage
+
+# vscode
+.vscode
