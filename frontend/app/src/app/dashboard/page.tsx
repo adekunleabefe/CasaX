@@ -337,21 +337,28 @@ function TenantWorkspace() {
   );
   const payments = useTenancyPayments(activeTenancy?.id ?? "");
   const agreement = useTenancyAgreement(activeTenancy?.id ?? "");
+
   const nextPayment = payments.data
     ?.filter((payment) => ["pending", "overdue"].includes(payment.status))
     .sort(
       (left, right) =>
         new Date(left.dueDate).getTime() - new Date(right.dueDate).getTime(),
     )[0];
+
   const paidPayments =
     payments.data?.filter((payment) => payment.status === "paid") ?? [];
+
   const totalPaid = paidPayments.reduce(
     (total, payment) => total + payment.amount,
     0,
   );
+
   const tenantName = activeTenancy?.user.profile
     ? `${activeTenancy.user.profile.firstName} ${activeTenancy.user.profile.lastName}`
     : activeTenancy?.user.email;
+
+  const hasRentDue = Boolean(nextPayment && Number(nextPayment.amount) > 0);
+  const tenantAgreementStatus = getTenantAgreementStatus(agreement.data?.status);
 
   return (
     <main className="mx-auto max-w-6xl p-4 sm:p-5 lg:p-8">
@@ -382,9 +389,12 @@ function TenantWorkspace() {
               </div>
             ) : null}
           </div>
+
           <div className="flex flex-col gap-3 sm:flex-row">
             <Button asChild className="w-full sm:w-auto">
-              <Link href="/rent">Pay rent</Link>
+              <Link href={hasRentDue ? "/rent" : "/payments"}>
+                {hasRentDue ? "Pay rent" : "View payment history"}
+              </Link>
             </Button>
             <Button asChild className="w-full sm:w-auto" variant="outline">
               <Link href="/agreement">View agreement</Link>
@@ -392,12 +402,14 @@ function TenantWorkspace() {
           </div>
         </div>
       </header>
+
       {tenancies.isLoading ? (
         <Card className="mt-8">
           <div className="h-5 w-40 animate-pulse rounded bg-slate-100" />
           <div className="mt-6 h-28 animate-pulse rounded-xl bg-slate-100" />
         </Card>
       ) : null}
+
       {tenancies.isError ? (
         <Card className="mt-8 border-orange-100 bg-orange-50/50">
           <p className="text-sm text-orange-700">
@@ -405,6 +417,7 @@ function TenantWorkspace() {
           </p>
         </Card>
       ) : null}
+
       {!tenancies.isLoading && !tenancies.isError && !activeTenancy ? (
         <Card className="mt-8 py-14 text-center">
           <KeyRound className="mx-auto size-8 text-slate-400" />
@@ -414,6 +427,7 @@ function TenantWorkspace() {
           </p>
         </Card>
       ) : null}
+
       {activeTenancy ? (
         <>
           <section className="mt-6 grid gap-4 md:grid-cols-3">
@@ -434,9 +448,10 @@ function TenantWorkspace() {
                 </div>
                 {nextPayment ? <StatusBadge status={nextPayment.status} /> : null}
               </div>
+
               <div className="mt-7 grid gap-3 sm:grid-cols-3">
                 <TenantStat
-                  label={rentAmountLabel(activeTenancy.paymentFrequency)}
+                  label="Rent amount"
                   value={formatCurrency(activeTenancy.rentAmount)}
                 />
                 <TenantStat
@@ -458,7 +473,9 @@ function TenantWorkspace() {
                 <>
                   <div className="mt-4 flex items-center justify-between gap-3">
                     <FileText className="size-5 text-emerald-700" />
-                    <StatusBadge status={agreement.data.status} />
+                    <span className="rounded-full bg-emerald-50 px-3 py-1 text-xs font-semibold text-emerald-700">
+                      {tenantAgreementStatus}
+                    </span>
                   </div>
                   <p className="mt-4 text-sm font-medium text-slate-950">
                     {agreement.data.title}
@@ -492,6 +509,7 @@ function TenantWorkspace() {
                   <Link href="/payments">View all</Link>
                 </Button>
               </div>
+
               {payments.isLoading ? (
                 <div className="mt-6 space-y-3">
                   {[1, 2, 3].map((item) => (
@@ -502,6 +520,7 @@ function TenantWorkspace() {
                   ))}
                 </div>
               ) : null}
+
               {payments.data?.length ? (
                 <div className="mt-6 divide-y divide-slate-100">
                   {payments.data.slice(0, 4).map((payment) => (
@@ -523,6 +542,7 @@ function TenantWorkspace() {
                   ))}
                 </div>
               ) : null}
+
               {!payments.isLoading && payments.data?.length === 0 ? (
                 <div className="mt-6 rounded-xl bg-slate-50 px-5 py-9 text-center">
                   <p className="text-sm text-slate-500">
@@ -914,4 +934,21 @@ function formatFullDate(value: string) {
     month: "short",
     year: "numeric",
   }).format(new Date(value));
+}
+
+function getTenantAgreementStatus(status?: string) {
+  switch (status) {
+    case "draft":
+      return "Draft";
+    case "generated":
+      return "Ready soon";
+    case "sent":
+      return "Ready to review";
+    case "signed":
+      return "Signed";
+    case "cancelled":
+      return "Cancelled";
+    default:
+      return "Agreement ready";
+  }
 }

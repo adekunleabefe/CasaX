@@ -1,6 +1,6 @@
 "use client";
 
-import { useEffect, type ReactNode } from "react";
+import { useEffect, useState, type ReactNode } from "react";
 import Link from "next/link";
 import { usePathname, useRouter } from "next/navigation";
 import { useQueryClient } from "@tanstack/react-query";
@@ -24,6 +24,7 @@ import { Badge, Button, Card, Logo } from "@casax/ui";
 import type { NavigationItem, UserRole } from "@casax/types";
 import { useCurrentUser } from "@/features/auth/queries";
 import { ApiError, recoverFromUnauthorized } from "@/services/api";
+import { logout } from "@/services/auth";
 
 const navigation: (NavigationItem & {
   icon: typeof House;
@@ -148,12 +149,15 @@ function matchesRoute(pathname: string, route: string) {
 
 function canAccessRoute(pathname: string, role?: UserRole) {
   if (!role) return false;
+
   if (pathname.startsWith("/tenancies/") && pathname.endsWith("/renew")) {
     return role === "landlord";
   }
+
   const policy = routePolicies
     .filter((item) => matchesRoute(pathname, item.route))
     .sort((left, right) => right.route.length - left.route.length)[0];
+
   return policy ? policy.roles.includes(role) : true;
 }
 
@@ -163,6 +167,7 @@ export function DashboardShell({ children }: { children: ReactNode }) {
   const queryClient = useQueryClient();
   const isAuthRoute = pathname === "/auth" || pathname.startsWith("/auth/");
   const currentUser = useCurrentUser(!isAuthRoute);
+
   useEffect(() => {
     if (
       currentUser.error instanceof ApiError &&
@@ -172,6 +177,7 @@ export function DashboardShell({ children }: { children: ReactNode }) {
       void recoverFromUnauthorized(currentUser.error);
     }
   }, [currentUser.error, queryClient]);
+
   useEffect(() => {
     if (
       !isAuthRoute &&
@@ -190,6 +196,7 @@ export function DashboardShell({ children }: { children: ReactNode }) {
   ]);
 
   if (isAuthRoute) return children;
+
   if (currentUser.isPending || !currentUser.isFetchedAfterMount) {
     return (
       <div className="flex min-h-screen items-center justify-center bg-slate-50 p-5">
@@ -208,7 +215,9 @@ export function DashboardShell({ children }: { children: ReactNode }) {
       </div>
     );
   }
+
   const currentRole = currentUser.data?.role;
+
   if (currentRole && !canAccessRoute(pathname, currentRole)) {
     return (
       <div className="flex min-h-screen items-center justify-center bg-slate-50 p-5">
@@ -224,20 +233,32 @@ export function DashboardShell({ children }: { children: ReactNode }) {
       </div>
     );
   }
+
   const visibleNavigation = currentRole
     ? navigation.filter((item) => item.roles.includes(currentRole))
     : [];
+
   const roleLabel = currentRole
     ? `${currentRole[0].toUpperCase()}${currentRole.slice(1)} workspace`
     : "Workspace";
+
   const profile = currentUser.data?.profile;
+
   const initials = profile
     ? `${profile.firstName[0] ?? ""}${profile.lastName[0] ?? ""}`.toUpperCase()
     : (currentUser.data?.email.slice(0, 2).toUpperCase() ?? "--");
+
   const dateLabel = new Intl.DateTimeFormat("en-NG", {
     dateStyle: "full",
     timeZone: "Africa/Lagos",
   }).format(new Date());
+
+  const handleLogout = async () => {
+    await logout();
+    queryClient.clear();
+    router.replace("/auth/login");
+  };
+
   if (
     currentUser.error instanceof ApiError &&
     currentUser.error.isAuthenticationError
@@ -265,6 +286,7 @@ export function DashboardShell({ children }: { children: ReactNode }) {
     return (
       <TenantLayout
         initials={initials}
+        onLogout={handleLogout}
         pathname={pathname}
       >
         {children}
@@ -273,11 +295,11 @@ export function DashboardShell({ children }: { children: ReactNode }) {
   }
 
   return (
-    <div className="min-h-screen bg-slate-50 lg:grid lg:grid-cols-[256px_1fr]">
-      <aside className="hidden border-r border-slate-200 bg-white p-5 lg:flex lg:flex-col">
+    <div className="min-h-screen bg-slate-50 lg:pl-64">
+      <aside className="fixed inset-y-0 left-0 z-40 hidden w-64 border-r border-slate-200 bg-white p-5 lg:flex lg:flex-col">
         <Logo />
         <Badge className="mt-7 w-fit">{roleLabel}</Badge>
-        <nav className="mt-7 space-y-1">
+        <nav className="mt-7 space-y-1 overflow-y-auto pb-8">
           {visibleNavigation.map(({ label, href, icon: Icon }) => (
             <Link
               className={`flex items-center gap-3 rounded-xl px-3 py-3 text-sm ${
@@ -294,25 +316,27 @@ export function DashboardShell({ children }: { children: ReactNode }) {
           ))}
         </nav>
       </aside>
-      <div>
-        <header className="flex h-16 items-center justify-between border-b border-slate-200 bg-white px-5 lg:px-8">
+
+      <div className="min-w-0">
+        <header className="sticky top-0 z-30 flex h-16 items-center justify-between border-b border-slate-200 bg-white/90 px-5 backdrop-blur lg:px-8">
           <div className="lg:hidden">
             <Logo />
           </div>
           <p className="hidden text-sm text-slate-500 lg:block">{dateLabel}</p>
+
           <div className="flex items-center gap-4">
-            <button
-              className="relative text-slate-600"
+            <Link
               aria-label="Notifications"
+              className="relative text-slate-600"
+              href="/notifications"
             >
               <Bell className="size-5" />
-            </button>
-            <div className="rounded-full bg-slate-100 px-3 py-2 text-sm font-medium">
-              {initials}
-            </div>
+            </Link>
+            <ProfileMenu initials={initials} onLogout={handleLogout} />
           </div>
         </header>
-        <div className="border-b border-slate-200 bg-white px-4 py-3 lg:hidden">
+
+        <div className="sticky top-16 z-20 border-b border-slate-200 bg-white/90 px-4 py-3 backdrop-blur lg:hidden">
           <nav className="flex gap-2 overflow-x-auto">
             {visibleNavigation.slice(0, 7).map(({ label, href }) => (
               <Link
@@ -329,6 +353,7 @@ export function DashboardShell({ children }: { children: ReactNode }) {
             ))}
           </nav>
         </div>
+
         {children}
       </div>
     </div>
@@ -339,17 +364,19 @@ function TenantLayout({
   children,
   initials,
   pathname,
+  onLogout,
 }: {
   children: ReactNode;
   initials: string;
   pathname: string;
+  onLogout: () => Promise<void>;
 }) {
   return (
-    <div className="min-h-screen bg-[radial-gradient(circle_at_top_left,#ecfdf5,transparent_34%),#f8fafc] lg:grid lg:grid-cols-[256px_1fr]">
-      <aside className="hidden border-r border-slate-200 bg-white/95 p-5 shadow-sm shadow-slate-200/50 lg:flex lg:flex-col">
+    <div className="min-h-screen bg-[radial-gradient(circle_at_top_left,#ecfdf5,transparent_34%),#f8fafc] lg:pl-64">
+      <aside className="fixed inset-y-0 left-0 z-40 hidden w-64 border-r border-slate-200 bg-white/95 p-5 shadow-sm shadow-slate-200/50 lg:flex lg:flex-col">
         <Logo />
         <Badge className="mt-7 w-fit">Tenant workspace</Badge>
-        <nav className="mt-7 space-y-1">
+        <nav className="mt-7 space-y-1 overflow-y-auto pb-8">
           {tenantNavigation.map(({ label, href, icon: Icon }) => (
             <Link
               className={`flex items-center gap-3 rounded-xl px-3 py-3 text-sm ${
@@ -366,8 +393,9 @@ function TenantLayout({
           ))}
         </nav>
       </aside>
-      <div className="min-w-0">
-        <header className="flex h-16 items-center justify-between border-b border-slate-200 bg-white/90 px-5 backdrop-blur lg:px-8">
+
+      <div className="min-w-0 pb-24 lg:pb-0">
+        <header className="sticky top-0 z-30 flex h-16 items-center justify-between border-b border-slate-200 bg-white/90 px-5 backdrop-blur lg:px-8">
           <div className="lg:hidden">
             <Logo />
           </div>
@@ -382,12 +410,11 @@ function TenantLayout({
             >
               <Bell className="size-5" />
             </Link>
-            <div className="rounded-full bg-slate-950 px-3 py-2 text-sm font-medium text-white">
-              {initials}
-            </div>
+            <ProfileMenu initials={initials} onLogout={onLogout} dark />
           </div>
         </header>
-        <div className="border-b border-slate-200 bg-white/80 px-4 py-3 lg:hidden">
+
+        <div className="sticky top-16 z-20 border-b border-slate-200 bg-white/80 px-4 py-3 backdrop-blur lg:hidden">
           <nav className="flex gap-2 overflow-x-auto">
             {tenantNavigation.map(({ label, href }) => (
               <Link
@@ -404,7 +431,9 @@ function TenantLayout({
             ))}
           </nav>
         </div>
+
         {children}
+
         <nav className="fixed inset-x-0 bottom-0 z-30 grid grid-cols-5 border-t border-slate-200 bg-white/95 px-2 pb-[max(0.5rem,env(safe-area-inset-bottom))] pt-2 shadow-2xl shadow-slate-950/10 backdrop-blur lg:hidden">
           {tenantNavigation.slice(0, 5).map(({ label, href, icon: Icon }) => (
             <Link
@@ -422,6 +451,55 @@ function TenantLayout({
           ))}
         </nav>
       </div>
+    </div>
+  );
+}
+
+function ProfileMenu({
+  initials,
+  onLogout,
+  dark = false,
+}: {
+  initials: string;
+  onLogout: () => Promise<void>;
+  dark?: boolean;
+}) {
+  const [open, setOpen] = useState(false);
+
+  return (
+    <div className="relative">
+      <button
+        type="button"
+        onClick={() => setOpen((value) => !value)}
+        className={`flex size-10 items-center justify-center rounded-full text-sm font-semibold ${
+          dark ? "bg-slate-950 text-white" : "bg-slate-100 text-slate-700"
+        }`}
+      >
+        {initials}
+      </button>
+
+      {open ? (
+        <div className="absolute right-0 z-50 mt-3 w-56 rounded-2xl border border-slate-200 bg-white p-2 shadow-xl shadow-slate-950/10">
+          <Link
+            href="/settings"
+            className="block rounded-xl px-3 py-2 text-sm text-slate-700 hover:bg-slate-50"
+            onClick={() => setOpen(false)}
+          >
+            Profile settings
+          </Link>
+
+          <button
+            type="button"
+            onClick={() => {
+              setOpen(false);
+              void onLogout();
+            }}
+            className="mt-1 w-full rounded-xl px-3 py-2 text-left text-sm font-medium text-red-600 hover:bg-red-50"
+          >
+            Log out
+          </button>
+        </div>
+      ) : null}
     </div>
   );
 }

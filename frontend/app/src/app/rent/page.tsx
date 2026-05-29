@@ -1,7 +1,7 @@
 "use client";
 
 import Link from "next/link";
-import { CalendarDays, CreditCard, ReceiptText, Repeat } from "lucide-react";
+import { CalendarDays, CreditCard, ReceiptText } from "lucide-react";
 import { Button, Card } from "@casax/ui";
 import { formatCurrency } from "@casax/utils";
 import { StatusBadge } from "@/components/operations/status-badge";
@@ -14,7 +14,9 @@ export default function RentPage() {
   const activeTenancy = tenancies.data?.items.find(
     (tenancy) => tenancy.status === "active" || tenancy.status === "pending",
   );
+
   const payments = useTenancyPayments(activeTenancy?.id ?? "");
+
   const nextPayment = payments.data
     ?.filter((payment) => ["pending", "overdue"].includes(payment.status))
     .sort(
@@ -22,10 +24,16 @@ export default function RentPage() {
         new Date(left.dueDate).getTime() - new Date(right.dueDate).getTime(),
     )[0];
 
+  const hasRentDue = Boolean(nextPayment && Number(nextPayment.amount) > 0);
+
+  const paymentHref =
+    hasRentDue && nextPayment ? `/payments/${nextPayment.id}` : "/payments";
+
   return (
     <main className="mx-auto max-w-6xl px-4 pb-28 pt-5 sm:px-5 lg:px-8 lg:pb-10">
       <header className="rounded-3xl border border-slate-200 bg-white p-6 shadow-sm shadow-slate-200/50 sm:p-8">
         <p className="text-sm font-medium text-emerald-700">Rent</p>
+
         <div className="mt-3 flex flex-col justify-between gap-5 sm:flex-row sm:items-end">
           <div>
             <h1 className="text-3xl font-semibold tracking-tight text-slate-950">
@@ -35,72 +43,120 @@ export default function RentPage() {
               See what is due, what is paid and what is coming next.
             </p>
           </div>
-          <Button className="w-full sm:w-auto">Pay rent</Button>
+
+          <Button asChild className="w-full sm:w-auto">
+            <Link href={paymentHref}>
+              {hasRentDue ? "Pay rent" : "View payment history"}
+            </Link>
+          </Button>
         </div>
       </header>
 
       <section className="mt-6 grid gap-5 lg:grid-cols-[minmax(0,1fr)_360px]">
         <Card className="bg-slate-950 p-6 text-white sm:p-8">
           <p className="text-sm text-emerald-300">Amount due</p>
+
           <h2 className="mt-4 text-4xl font-semibold tracking-tight">
-            {nextPayment ? formatCurrency(nextPayment.amount) : "No rent due"}
+            {hasRentDue && nextPayment
+              ? formatCurrency(nextPayment.amount)
+              : "No rent due"}
           </h2>
+
           <p className="mt-3 text-sm leading-6 text-slate-300">
-            {nextPayment
+            {hasRentDue && nextPayment
               ? `Due ${formatDate(nextPayment.dueDate)}`
               : "You are all caught up for now."}
           </p>
+
           <div className="mt-7 rounded-2xl bg-white/10 p-4">
             <div className="flex items-center justify-between gap-4">
               <span className="text-sm text-slate-300">Payment status</span>
-              {nextPayment ? (
+
+              {hasRentDue && nextPayment ? (
                 <StatusBadge status={nextPayment.status} />
               ) : (
                 <span className="rounded-full bg-emerald-400/20 px-3 py-1 text-xs font-medium text-emerald-200">
-                  Paid
+                  No rent due
                 </span>
               )}
             </div>
+
             <div className="mt-4 h-2 overflow-hidden rounded-full bg-white/10">
               <div
                 className={`h-full rounded-full ${
-                  nextPayment?.status === "overdue"
+                  hasRentDue && nextPayment?.status === "overdue"
                     ? "w-full bg-orange-400"
-                    : nextPayment
+                    : hasRentDue
                       ? "w-2/3 bg-emerald-400"
                       : "w-full bg-emerald-400"
                 }`}
               />
             </div>
           </div>
-          <Button className="mt-7 w-full bg-white text-slate-950 hover:bg-slate-100">
-            Pay rent
+
+          <Button
+            asChild
+            className="mt-7 w-full bg-white text-slate-950 hover:bg-slate-100"
+          >
+            <Link href={paymentHref}>
+              {hasRentDue ? "Pay rent" : "View payment history"}
+            </Link>
           </Button>
         </Card>
 
         <div className="space-y-5">
           <Card>
             <CreditCard className="size-5 text-emerald-700" />
+
             <h2 className="mt-4 font-semibold text-slate-950">
-              {rentAmountLabel(activeTenancy?.paymentFrequency)}
-            </h2>
-            <p className="mt-2 text-2xl font-semibold text-slate-950">
               {activeTenancy
-                ? formatCurrency(activeTenancy.rentAmount)
-                : "--"}
+                ? rentAmountLabel(activeTenancy.paymentFrequency)
+                : "Rent amount"}
+            </h2>
+
+            <p className="mt-2 text-3xl font-semibold text-slate-950">
+              {activeTenancy ? formatCurrency(activeTenancy.rentAmount) : "--"}
             </p>
-            <p className="mt-1 text-sm capitalize text-slate-500">
+
+            <p className="mt-2 text-sm capitalize text-slate-500">
               {activeTenancy?.paymentFrequency ?? "No active rent schedule"}
             </p>
           </Card>
+
           <Card>
-            <Repeat className="size-5 text-emerald-700" />
+            <CalendarDays className="size-5 text-emerald-700" />
+
             <h2 className="mt-4 font-semibold text-slate-950">
-              Auto-pay placeholder
+              Lease status
             </h2>
-            <p className="mt-2 text-sm leading-6 text-slate-500">
-              Recurring payments and reminders will be available here.
-            </p>
+
+            <div className="mt-4">
+              {activeTenancy ? (
+                <StatusBadge status={activeTenancy.status} />
+              ) : (
+                <span className="rounded-full bg-slate-100 px-3 py-1 text-xs font-semibold text-slate-600">
+                  No active lease
+                </span>
+              )}
+            </div>
+
+            <div className="mt-5 rounded-2xl bg-slate-50 p-4">
+              <p className="text-xs text-slate-500">Lease ends</p>
+              <p className="mt-1 text-sm font-medium text-slate-950">
+                {activeTenancy ? formatDate(activeTenancy.endDate) : "--"}
+              </p>
+            </div>
+
+            <div className="mt-3 rounded-2xl bg-slate-50 p-4">
+              <p className="text-xs text-slate-500">Stay period</p>
+              <p className="mt-1 text-sm font-medium text-slate-950">
+                {activeTenancy
+                  ? `${formatDate(activeTenancy.startDate)} - ${formatDate(
+                      activeTenancy.endDate,
+                    )}`
+                  : "--"}
+              </p>
+            </div>
           </Card>
         </div>
       </section>
@@ -115,13 +171,15 @@ export default function RentPage() {
               Invoice preview
             </h2>
           </div>
+
           <Button asChild variant="ghost">
             <Link href="/payments">View payments</Link>
           </Button>
         </div>
-        {nextPayment ? (
+
+        {hasRentDue && nextPayment ? (
           <Link
-            className="mt-6 flex items-center justify-between gap-4 rounded-2xl border border-slate-100 p-4"
+            className="mt-6 flex items-center justify-between gap-4 rounded-2xl border border-slate-100 p-4 transition hover:border-emerald-100 hover:bg-emerald-50/30"
             href={`/payments/${nextPayment.id}`}
           >
             <span className="flex min-w-0 items-center gap-3">
@@ -137,6 +195,7 @@ export default function RentPage() {
                 </span>
               </span>
             </span>
+
             <CalendarDays className="size-4 text-slate-300" />
           </Link>
         ) : (

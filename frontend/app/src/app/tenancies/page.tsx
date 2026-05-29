@@ -2,14 +2,24 @@
 
 import Link from "next/link";
 import { useState } from "react";
-import { ArrowRight, CalendarRange, FileText, Home, KeyRound, UserRound } from "lucide-react";
+import {
+  ArrowRight,
+  CalendarRange,
+  FileText,
+  Home,
+  KeyRound,
+  UserRound,
+} from "lucide-react";
 import type { TenancyStatus } from "@casax/types";
 import { Button, Card } from "@casax/ui";
 import { formatCurrency } from "@casax/utils";
 import { PageHeader } from "@/components/operations/page-header";
 import { ErrorState, LoadingCards } from "@/components/operations/query-states";
 import { StatusBadge } from "@/components/operations/status-badge";
-import { useTenancies, useTenancyAgreement } from "@/features/tenancies/queries";
+import {
+  useTenancies,
+  useTenancyAgreement,
+} from "@/features/tenancies/queries";
 import { useCurrentUser } from "@/features/auth/queries";
 
 const statuses: { label: string; value: TenancyStatus | "" }[] = [
@@ -22,6 +32,7 @@ const statuses: { label: string; value: TenancyStatus | "" }[] = [
 
 export default function TenanciesPage() {
   const currentUser = useCurrentUser();
+
   if (currentUser.isLoading) {
     return (
       <main className="p-5 lg:p-8">
@@ -29,9 +40,11 @@ export default function TenanciesPage() {
       </main>
     );
   }
+
   if (currentUser.data?.role === "tenant") {
     return <TenantHomePage />;
   }
+
   return <OperationalTenanciesPage />;
 }
 
@@ -46,6 +59,7 @@ function OperationalTenanciesPage() {
         title="Active lease operations"
         description="Approved applicants converted into accountable tenant and occupancy records."
       />
+
       <div className="mt-8 flex gap-2 overflow-x-auto pb-2">
         {statuses.map((item) => (
           <button
@@ -62,14 +76,17 @@ function OperationalTenanciesPage() {
           </button>
         ))}
       </div>
+
       <section className="mt-5">
         {tenancies.isLoading ? <LoadingCards /> : null}
+
         {tenancies.isError ? (
           <ErrorState
             title="Unable to load tenancies"
             onRetry={() => void tenancies.refetch()}
           />
         ) : null}
+
         {tenancies.data?.items.length === 0 ? (
           <Card className="py-14 text-center">
             <KeyRound className="mx-auto size-8 text-slate-400" />
@@ -79,10 +96,12 @@ function OperationalTenanciesPage() {
             </p>
           </Card>
         ) : null}
+
         {tenancies.data?.items.length ? (
           <div className="grid gap-4 xl:grid-cols-2">
             {tenancies.data.items.map((tenancy) => {
               const profile = tenancy.user.profile;
+
               return (
                 <Card key={tenancy.id}>
                   <div className="flex items-start justify-between gap-3">
@@ -101,6 +120,7 @@ function OperationalTenanciesPage() {
                     </div>
                     <StatusBadge status={tenancy.status} />
                   </div>
+
                   <div className="mt-6 grid grid-cols-2 gap-3 rounded-xl bg-slate-50 p-4 text-sm">
                     <div>
                       <p className="text-slate-500">Rent</p>
@@ -115,6 +135,7 @@ function OperationalTenanciesPage() {
                       </p>
                     </div>
                   </div>
+
                   <Link
                     className="mt-5 inline-flex items-center gap-2 text-sm font-medium text-emerald-700"
                     href={`/tenancies/${tenancy.id}`}
@@ -137,6 +158,7 @@ function TenantHomePage() {
     (tenancy) => tenancy.status === "active" || tenancy.status === "pending",
   );
   const agreement = useTenancyAgreement(activeTenancy?.id ?? "");
+  const tenantAgreementStatus = getTenantAgreementStatus(agreement.data?.status);
 
   return (
     <main className="mx-auto max-w-6xl px-4 pb-28 pt-5 sm:px-5 lg:px-8 lg:pb-10">
@@ -152,12 +174,14 @@ function TenantHomePage() {
       </header>
 
       {tenancies.isLoading ? <LoadingCards /> : null}
+
       {tenancies.isError ? (
         <ErrorState
           title="Unable to load your home"
           onRetry={() => void tenancies.refetch()}
         />
       ) : null}
+
       {!tenancies.isLoading && !tenancies.isError && !activeTenancy ? (
         <Card className="mt-6 py-14 text-center">
           <Home className="mx-auto size-8 text-slate-400" />
@@ -167,6 +191,7 @@ function TenantHomePage() {
           </p>
         </Card>
       ) : null}
+
       {activeTenancy ? (
         <section className="mt-6 grid gap-6 lg:grid-cols-[minmax(0,1fr)_360px]">
           <Card>
@@ -185,6 +210,7 @@ function TenantHomePage() {
               </div>
               <StatusBadge status={activeTenancy.status} />
             </div>
+
             <div className="mt-7 grid gap-3 sm:grid-cols-2">
               <ResidentInfo
                 icon={Home}
@@ -194,12 +220,16 @@ function TenantHomePage() {
               <ResidentInfo
                 icon={CalendarRange}
                 label="Lease period"
-                value={`${formatDate(activeTenancy.startDate)} - ${formatDate(activeTenancy.endDate)}`}
+                value={`${formatDate(activeTenancy.startDate)} - ${formatDate(
+                  activeTenancy.endDate,
+                )}`}
               />
               <ResidentInfo
                 icon={KeyRound}
                 label="Rent"
-                value={`${formatCurrency(activeTenancy.rentAmount)} / ${activeTenancy.paymentFrequency}`}
+                value={`${formatCurrency(activeTenancy.rentAmount)} / ${
+                  activeTenancy.paymentFrequency
+                }`}
               />
               <ResidentInfo
                 icon={UserRound}
@@ -215,14 +245,18 @@ function TenantHomePage() {
               <h2 className="mt-4 font-semibold text-slate-950">
                 Agreement status
               </h2>
+
               {agreement.data ? (
                 <>
                   <div className="mt-4 flex items-center justify-between gap-3">
                     <span className="text-sm text-slate-500">
                       {agreement.data.agreementNumber}
                     </span>
-                    <StatusBadge status={agreement.data.status} />
+                    <span className="rounded-full bg-emerald-50 px-3 py-1 text-xs font-semibold text-emerald-700">
+                      {tenantAgreementStatus}
+                    </span>
                   </div>
+
                   <Button asChild className="mt-5 w-full" variant="ghost">
                     <Link href={`/tenancies/${activeTenancy.id}#agreement`}>
                       View agreement
@@ -271,6 +305,23 @@ function ResidentInfo({
       </p>
     </div>
   );
+}
+
+function getTenantAgreementStatus(status?: string) {
+  switch (status) {
+    case "draft":
+      return "Draft";
+    case "generated":
+      return "Ready soon";
+    case "sent":
+      return "Ready to review";
+    case "signed":
+      return "Signed";
+    case "cancelled":
+      return "Cancelled";
+    default:
+      return "Agreement ready";
+  }
 }
 
 function formatDate(value: string) {
