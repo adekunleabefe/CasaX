@@ -1,9 +1,8 @@
 import type { Metadata } from "next";
 import { Inter } from "next/font/google";
 import type { ReactNode } from "react";
-import { brand } from "@casax/config/site";
 import { Providers } from "@/components/providers";
-import { PublicHeader } from "@/components/public-header";
+import { SiteChrome } from "@/components/site-chrome";
 import "./globals.css";
 
 const inter = Inter({
@@ -13,8 +12,9 @@ const inter = Inter({
 });
 
 export const metadata: Metadata = {
-  title: `${brand.name} | Property operations with visibility and control`,
-  description: brand.description,
+  title: "CasaX | Verified Apartments and Rentals in Nigeria",
+  description:
+    "Find verified apartments for rent, book inspections, and apply online through CasaX-reviewed rentals.",
 };
 
 export default function RootLayout({
@@ -24,8 +24,7 @@ export default function RootLayout({
     <html lang="en">
       <body className={`${inter.variable} min-h-screen antialiased`}>
         <Providers>
-          <PublicHeader />
-          {children}
+          <SiteChrome>{children}</SiteChrome>
         </Providers>
       </body>
     </html>

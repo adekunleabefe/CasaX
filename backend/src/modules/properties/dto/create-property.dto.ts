@@ -1,6 +1,19 @@
 import { ApiProperty, ApiPropertyOptional } from '@nestjs/swagger';
 import { PropertyStatus } from '@prisma/client';
-import { IsEnum, IsString, MaxLength, MinLength } from 'class-validator';
+import {
+  ArrayMinSize,
+  IsEnum,
+  IsInt,
+  IsNumber,
+  IsOptional,
+  IsString,
+  Max,
+  MaxLength,
+  Min,
+  MinLength,
+  ValidateNested,
+} from 'class-validator';
+import { Type } from 'class-transformer';
 
 export enum PropertyStatusInput {
   ACTIVE = 'active',
@@ -11,6 +24,32 @@ export const propertyStatusMap: Record<PropertyStatusInput, PropertyStatus> = {
   [PropertyStatusInput.ACTIVE]: PropertyStatus.ACTIVE,
   [PropertyStatusInput.INACTIVE]: PropertyStatus.INACTIVE,
 };
+
+export class UnitMixDto {
+  @ApiProperty({ example: 'Self-contained' })
+  @IsString()
+  @MinLength(2)
+  @MaxLength(80)
+  unitType!: string;
+
+  @ApiProperty({ example: 4 })
+  @IsInt()
+  @Min(1)
+  @Max(10000)
+  quantity!: number;
+
+  @ApiProperty({ example: 500000 })
+  @IsNumber({ maxDecimalPlaces: 2 })
+  @Min(0)
+  annualRent!: number;
+
+  @ApiPropertyOptional({ example: 'Self-contained' })
+  @IsOptional()
+  @IsString()
+  @MinLength(1)
+  @MaxLength(40)
+  unitNamingPrefix?: string;
+}
 
 export class CreatePropertyDto {
   @ApiProperty({ example: 'Lekki Heights' })
@@ -49,4 +88,26 @@ export class CreatePropertyDto {
   })
   @IsEnum(PropertyStatusInput)
   status: PropertyStatusInput = PropertyStatusInput.ACTIVE;
+
+  @ApiProperty({
+    type: [UnitMixDto],
+    example: [
+      {
+        unitType: 'Self-contained',
+        quantity: 4,
+        annualRent: 500000,
+        unitNamingPrefix: 'Self-contained',
+      },
+      {
+        unitType: 'Mini-flat',
+        quantity: 6,
+        annualRent: 800000,
+        unitNamingPrefix: 'Mini-flat',
+      },
+    ],
+  })
+  @ValidateNested({ each: true })
+  @Type(() => UnitMixDto)
+  @ArrayMinSize(1)
+  unitMix!: UnitMixDto[];
 }

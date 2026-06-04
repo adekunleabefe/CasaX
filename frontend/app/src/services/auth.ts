@@ -29,7 +29,6 @@ export interface LoginInput {
 export interface RegisterInput extends LoginInput {
   firstName: string;
   lastName: string;
-  role: "LANDLORD" | "APPLICANT";
 }
 
 export interface SetupAccountInput {
@@ -64,7 +63,7 @@ export async function logout() {
 export async function register(input: RegisterInput) {
   const payload = await apiRequest<RegistrationPayload>("/auth/register", {
     method: "POST",
-    body: JSON.stringify(input),
+    body: JSON.stringify({ ...input, role: "APPLICANT" }),
   });
   return {
     user: normalizeUser(payload),

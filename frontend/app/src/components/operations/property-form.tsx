@@ -1,8 +1,9 @@
 "use client";
 
 import { useState, type FormEvent, type ReactNode } from "react";
-import type { PropertyInput } from "@casax/types";
+import type { PropertyInput, UnitMixInput } from "@casax/types";
 import { Button, Card } from "@casax/ui";
+import { formatCurrency } from "@casax/utils";
 import { propertySchema } from "@/features/properties/schemas";
 
 const inputClass =
@@ -21,13 +22,27 @@ export function PropertyForm({
   error?: string;
   onSubmit: (values: PropertyInput) => Promise<void>;
 }) {
+  const isSubmission = !initialValues;
+  const [unitMix, setUnitMix] = useState<UnitMixInput[]>(
+    initialValues?.unitMix ?? [
+      {
+        unitType: "Self-contained",
+        quantity: 4,
+        annualRent: 500000,
+        unitNamingPrefix: "Self-contained",
+      },
+    ],
+  );
   const [fieldErrors, setFieldErrors] = useState<
-    Partial<Record<keyof PropertyInput, string>>
+    Partial<Record<keyof PropertyInput | "unitMix", string>>
   >({});
 
   async function submit(event: FormEvent<HTMLFormElement>) {
     event.preventDefault();
-    const values = Object.fromEntries(new FormData(event.currentTarget));
+    const values = {
+      ...Object.fromEntries(new FormData(event.currentTarget)),
+      ...(isSubmission ? { unitMix } : {}),
+    };
     const parsed = propertySchema.safeParse(values);
     if (!parsed.success) {
       const errors = parsed.error.flatten().fieldErrors;
@@ -39,6 +54,10 @@ export function PropertyForm({
           ]),
         ),
       );
+      return;
+    }
+    if (isSubmission && !parsed.data.unitMix?.length) {
+      setFieldErrors({ unitMix: "Add at least one unit mix row." });
       return;
     }
     setFieldErrors({});
@@ -57,6 +76,11 @@ export function PropertyForm({
     type: "Apartment building",
     status: "active",
   };
+  const totalUnits = unitMix.reduce((total, row) => total + Number(row.quantity || 0), 0);
+  const annualRentRoll = unitMix.reduce(
+    (total, row) => total + Number(row.quantity || 0) * Number(row.annualRent || 0),
+    0,
+  );
 
   return (
     <Card className="max-w-3xl">
@@ -113,6 +137,113 @@ export function PropertyForm({
             <option value="inactive">Inactive</option>
           </select>
         </Field>
+        {isSubmission ? (
+          <div className="space-y-5 rounded-2xl border border-emerald-100 bg-emerald-50/50 p-5 sm:col-span-2">
+            <div>
+              <h2 className="font-semibold text-slate-950">
+                Unit mix
+              </h2>
+              <p className="mt-2 text-sm leading-6 text-slate-600">
+                Add the realistic unit mix for this property. CasaX will
+                generate units from the submitted unit mix and review details
+                during verification.
+              </p>
+            </div>
+
+            <div className="space-y-4">
+              {unitMix.map((row, index) => (
+                <div
+                  className="grid gap-4 rounded-2xl bg-white p-4 shadow-sm ring-1 ring-emerald-100 sm:grid-cols-4"
+                  key={index}
+                >
+                  <CompactField label="Unit type">
+                    <input
+                      className={inputClass}
+                      onChange={(event) =>
+                        updateUnitMix(index, { unitType: event.target.value })
+                      }
+                      placeholder="Mini-flat"
+                      value={row.unitType}
+                    />
+                  </CompactField>
+                  <CompactField label="Quantity">
+                    <input
+                      className={inputClass}
+                      min={1}
+                      onChange={(event) =>
+                        updateUnitMix(index, {
+                          quantity: Number(event.target.value),
+                        })
+                      }
+                      placeholder="6"
+                      type="number"
+                      value={row.quantity}
+                    />
+                  </CompactField>
+                  <CompactField label="Annual rent">
+                    <input
+                      className={inputClass}
+                      min={0}
+                      onChange={(event) =>
+                        updateUnitMix(index, {
+                          annualRent: Number(event.target.value),
+                        })
+                      }
+                      placeholder="800000"
+                      type="number"
+                      value={row.annualRent}
+                    />
+                  </CompactField>
+                  <CompactField label="Naming prefix">
+                    <div className="flex gap-2">
+                      <input
+                        className={inputClass}
+                        onChange={(event) =>
+                          updateUnitMix(index, {
+                            unitNamingPrefix: event.target.value,
+                          })
+                        }
+                        placeholder="Mini-flat"
+                        value={row.unitNamingPrefix ?? ""}
+                      />
+                      {unitMix.length > 1 ? (
+                        <Button
+                          onClick={() => removeUnitMix(index)}
+                          type="button"
+                          variant="outline"
+                        >
+                          Remove
+                        </Button>
+                      ) : null}
+                    </div>
+                  </CompactField>
+                </div>
+              ))}
+            </div>
+
+            {fieldErrors.unitMix ? (
+              <p className="text-sm font-medium text-orange-700">
+                {fieldErrors.unitMix}
+              </p>
+            ) : null}
+
+            <div className="flex flex-col justify-between gap-3 rounded-2xl bg-white px-4 py-3 text-sm text-slate-600 sm:flex-row sm:items-center">
+              <span>
+                Total generated units:{" "}
+                <strong className="text-slate-950">{totalUnits}</strong>
+              </span>
+              <span>
+                Annual rent roll:{" "}
+                <strong className="text-slate-950">
+                  {formatCurrency(annualRentRoll)}
+                </strong>
+              </span>
+              <Button onClick={addUnitMix} type="button" variant="outline">
+                Add unit type
+              </Button>
+            </div>
+          </div>
+        ) : null}
         <div className="self-end">
           <Button className="w-full" disabled={isPending} type="submit">
             {isPending ? "Saving..." : submitLabel}
@@ -124,6 +255,30 @@ export function PropertyForm({
       </form>
     </Card>
   );
+
+  function updateUnitMix(index: number, patch: Partial<UnitMixInput>) {
+    setUnitMix((rows) =>
+      rows.map((row, rowIndex) =>
+        rowIndex === index ? { ...row, ...patch } : row,
+      ),
+    );
+  }
+
+  function addUnitMix() {
+    setUnitMix((rows) => [
+      ...rows,
+      {
+        unitType: "Mini-flat",
+        quantity: 1,
+        annualRent: 0,
+        unitNamingPrefix: "Mini-flat",
+      },
+    ]);
+  }
+
+  function removeUnitMix(index: number) {
+    setUnitMix((rows) => rows.filter((_, rowIndex) => rowIndex !== index));
+  }
 }
 
 function Field({
@@ -144,6 +299,21 @@ function Field({
           {error}
         </span>
       ) : null}
+    </label>
+  );
+}
+
+function CompactField({
+  label,
+  children,
+}: {
+  label: string;
+  children: ReactNode;
+}) {
+  return (
+    <label className="block text-xs font-semibold uppercase tracking-[0.12em] text-slate-500">
+      {label}
+      {children}
     </label>
   );
 }

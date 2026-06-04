@@ -18,10 +18,10 @@ export default function AgreementPage() {
       <header className="rounded-3xl border border-slate-200 bg-white p-6 shadow-sm shadow-slate-200/50 sm:p-8">
         <p className="text-sm font-medium text-emerald-700">Agreement</p>
         <h1 className="mt-3 text-3xl font-semibold tracking-tight text-slate-950">
-          Tenancy agreement
+          Lease agreement
         </h1>
         <p className="mt-2 max-w-2xl text-sm leading-6 text-slate-500">
-          Review your lease document, status and tenancy period.
+          Review your lease document, status and residence period.
         </p>
       </header>
 
@@ -68,7 +68,7 @@ export default function AgreementPage() {
           <div className="py-12 text-center">
             <FileText className="mx-auto size-8 text-slate-400" />
             <h2 className="mt-4 font-semibold text-slate-950">
-              Your tenancy agreement will appear here once issued.
+              Your lease agreement will appear here once issued.
             </h2>
             <p className="mt-2 text-sm text-slate-500">
               You will be notified when your agreement is ready.

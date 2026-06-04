@@ -25,7 +25,7 @@ import {
 
 @ApiBearerAuth()
 @ApiTags('Applications')
-@Roles(UserRole.LANDLORD, UserRole.CARETAKER, UserRole.APPLICANT)
+@Roles(UserRole.LANDLORD, UserRole.CARETAKER, UserRole.APPLICANT, UserRole.TENANT)
 @Controller('applications')
 export class ApplicationsController {
   constructor(

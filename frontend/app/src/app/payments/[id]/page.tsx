@@ -141,11 +141,13 @@ export default function PaymentDetailPage() {
           </div>
           <div className="mt-7 rounded-xl bg-slate-50 p-5 text-sm">
             <p className="font-medium">
-              {record.collectedByCaretaker ? "Collected by caretaker" : "Received directly by landlord"}
+              {record.collectedByCaretaker
+                ? "CasaX field collection"
+                : "CasaX rent receipt"}
             </p>
             <p className="mt-2 text-slate-500">
               {record.collectedByCaretaker?.user.email ??
-                "Direct receipts are considered remitted immediately."}
+                "Received rent is tracked for landlord remittance visibility."}
             </p>
           </div>
           {record.notes ? <p className="mt-5 text-sm text-slate-600">{record.notes}</p> : null}
@@ -153,7 +155,7 @@ export default function PaymentDetailPage() {
         <Card>
           <h2 className="font-semibold">Reconciliation</h2>
           <p className="mt-2 text-sm leading-6 text-slate-500">
-            References and proof keep manual payment records reviewable.
+            References and proof keep rent collection records reviewable.
           </p>
           <p className="mt-5 text-xs font-semibold uppercase tracking-wide text-slate-400">Reference</p>
           <p className="mt-2 text-sm">{record.reference ?? "No reference supplied"}</p>
@@ -170,12 +172,12 @@ export default function PaymentDetailPage() {
               onClick={() => setEditing((value) => !value)}
               variant="outline"
             >
-              {editing ? "Close editing" : "Edit record"}
+              {editing ? "Close editing" : "Request correction"}
             </Button>
           ) : null}
           {canManage && record.status !== "paid" && record.status !== "cancelled" ? (
             <Button className="mt-3 w-full" disabled={update.isPending} onClick={() => void update.mutateAsync({ status: "paid" })}>
-              Mark as paid
+              Mark reviewed
             </Button>
           ) : null}
           {canManage && record.status !== "cancelled" ? (
@@ -185,7 +187,7 @@ export default function PaymentDetailPage() {
               onClick={() => void remove.mutateAsync(id)}
               variant="outline"
             >
-              Cancel record
+              Cancel review record
             </Button>
           ) : null}
           {(update.error || remove.error) ? <p className="mt-4 text-sm text-orange-700">{(update.error ?? remove.error)?.message}</p> : null}
@@ -193,9 +195,10 @@ export default function PaymentDetailPage() {
       </div>
       {editing && canManage ? (
         <Card className="mt-6">
-          <h2 className="font-semibold">Edit payment record</h2>
+          <h2 className="font-semibold">Correct payment record</h2>
           <p className="mt-2 text-sm text-slate-500">
-            Correct manual details before the receipt is allocated to a remittance.
+            Correct details before this receipt appears in remittance
+            visibility.
           </p>
           <PaymentEditForm
             error={update.error?.message}

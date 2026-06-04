@@ -6,6 +6,8 @@ export class UpdateApplicationDto {
   @ApiPropertyOptional({
     enum: [
       ApplicationStatusInput.PENDING,
+      ApplicationStatusInput.INSPECTION_REQUIRED,
+      ApplicationStatusInput.INSPECTION_SCHEDULED,
       ApplicationStatusInput.INSPECTION_BOOKED,
       ApplicationStatusInput.UNDER_REVIEW,
     ],

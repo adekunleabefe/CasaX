@@ -14,6 +14,7 @@ import {
 
 export enum PaymentStatusInput {
   PENDING = 'pending',
+  PROCESSING = 'processing',
   PAID = 'paid',
   OVERDUE = 'overdue',
   FAILED = 'failed',
@@ -30,6 +31,7 @@ export enum PaymentMethodInput {
 
 export const paymentStatusMap: Record<PaymentStatusInput, PaymentStatus> = {
   [PaymentStatusInput.PENDING]: PaymentStatus.PENDING,
+  [PaymentStatusInput.PROCESSING]: PaymentStatus.PROCESSING,
   [PaymentStatusInput.PAID]: PaymentStatus.PAID,
   [PaymentStatusInput.OVERDUE]: PaymentStatus.OVERDUE,
   [PaymentStatusInput.FAILED]: PaymentStatus.FAILED,

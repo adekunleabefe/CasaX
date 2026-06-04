@@ -39,7 +39,7 @@ export default function DocumentsPage() {
           <Card className="py-10 text-center">
             <FileText className="mx-auto size-8 text-slate-400" />
             <h2 className="mt-4 font-semibold text-slate-950">
-              Your tenancy agreement will appear here once issued.
+              Your lease agreement will appear here once issued.
             </h2>
           </Card>
         )}

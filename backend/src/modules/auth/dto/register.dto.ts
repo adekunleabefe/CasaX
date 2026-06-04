@@ -9,7 +9,6 @@ import {
 } from 'class-validator';
 
 export enum SelfRegistrationRole {
-  LANDLORD = 'LANDLORD',
   APPLICANT = 'APPLICANT',
 }
 
@@ -40,7 +39,7 @@ export class RegisterDto {
   @ApiProperty({
     enum: SelfRegistrationRole,
     default: SelfRegistrationRole.APPLICANT,
-    example: 'landlord',
+    example: 'applicant',
   })
   @Transform(({ value }) =>
     typeof value === 'string' ? value.trim().toUpperCase() : value,

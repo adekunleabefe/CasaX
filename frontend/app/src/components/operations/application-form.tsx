@@ -59,7 +59,8 @@ export function ApplicationForm({
       <Card>
         <h2 className="font-semibold">Applicant information</h2>
         <p className="mt-1 text-sm text-slate-500">
-          Create an operational applicant record for this application.
+          Capture the applicant details CasaX needs for review and inspection
+          coordination.
         </p>
         <div className="mt-6 grid gap-5 sm:grid-cols-2">
           <Field
@@ -105,7 +106,7 @@ export function ApplicationForm({
       <Card>
         <h2 className="font-semibold">Select a vacant unit</h2>
         <p className="mt-1 text-sm text-slate-500">
-          Only vacant units can enter an applicant review workflow.
+          Only vacant units can enter the CasaX applicant review workflow.
         </p>
         <div className="mt-6 grid gap-5 sm:grid-cols-2">
           <Field

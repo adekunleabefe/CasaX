@@ -1,0 +1,2 @@
+ALTER TABLE "units"
+  ADD COLUMN IF NOT EXISTS "deposit_amount" DECIMAL(14,2);

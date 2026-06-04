@@ -16,6 +16,7 @@ export const envValidationSchema = Joi.object({
   COOKIE_DOMAIN: Joi.string().allow('').optional(),
   APP_URL: Joi.string().uri().default('http://localhost:3001'),
   WEB_URL: Joi.string().uri().default('http://localhost:3000'),
+  ADMIN_URL: Joi.string().uri().default('http://localhost:3002'),
   EMAIL_PROVIDER: Joi.string().valid('gmail', 'dev').default('dev'),
   EMAIL_FROM: Joi.string().default('CasaX <no-reply@casax.local>'),
   GMAIL_USER: Joi.when('EMAIL_PROVIDER', {
@@ -29,4 +30,10 @@ export const envValidationSchema = Joi.object({
     otherwise: Joi.string().allow('').optional(),
   }),
   EMAIL_TOKEN_TTL_HOURS: Joi.number().integer().min(1).default(72),
+  PAYSTACK_SECRET_KEY: Joi.string().allow('').optional(),
+  PAYSTACK_PUBLIC_KEY: Joi.string().allow('').optional(),
+  PAYSTACK_WEBHOOK_SECRET: Joi.string().allow('').optional(),
+  CASAX_PLATFORM_FEE_PERCENT: Joi.number().min(0).max(100).default(5),
+  SUBSCRIPTION_TRIAL_DAYS: Joi.number().integer().min(1).default(30),
+  SUBSCRIPTION_PAST_DUE_GRACE_DAYS: Joi.number().integer().min(0).default(7),
 });

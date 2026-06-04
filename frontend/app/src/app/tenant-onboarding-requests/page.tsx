@@ -15,8 +15,8 @@ export default function TenantOnboardingRequestsPage() {
     <main className="p-5 lg:p-8">
       <PageHeader
         eyebrow="Tenant onboarding"
-        title="Occupancy approval queue"
-        description="Review caretaker-assisted tenant submissions before tenancy begins."
+        title="Tenant onboarding review"
+        description="Monitor tenant submissions that need review before tenancy begins."
       />
       <section className="mt-8">
         {requests.isLoading ? <LoadingCards /> : null}
@@ -31,7 +31,8 @@ export default function TenantOnboardingRequestsPage() {
             <UserPlus className="mx-auto size-8 text-slate-400" />
             <h2 className="mt-4 font-semibold">No tenant onboarding requests</h2>
             <p className="mt-2 text-sm text-slate-500">
-              Caretaker-assisted submissions will be visible here for review.
+              Tenant submissions will be visible here when CasaX review is
+              needed.
             </p>
           </Card>
         ) : null}

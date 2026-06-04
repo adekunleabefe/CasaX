@@ -1,7 +1,15 @@
-import { Injectable, NotFoundException } from '@nestjs/common';
-import { Prisma, PropertyStatus } from '@prisma/client';
+import { BadRequestException, Injectable, NotFoundException } from '@nestjs/common';
+import {
+  Prisma,
+  PropertyListingStatus,
+  PropertyStatus,
+  PropertyVerificationStatus,
+  UnitReadinessStatus,
+  UnitStatus,
+} from '@prisma/client';
 import { AuthUser } from '../../common/types/auth-user.type';
 import { PrismaService } from '../../prisma/prisma.service';
+import { SubscriptionsService } from '../subscriptions/subscriptions.service';
 import {
   CreatePropertyDto,
   propertyStatusMap,
@@ -19,9 +27,21 @@ const propertyInclude = {
 
 @Injectable()
 export class PropertiesService {
-  constructor(private readonly prisma: PrismaService) {}
+  constructor(
+    private readonly prisma: PrismaService,
+    private readonly subscriptionsService: SubscriptionsService,
+  ) {}
 
   async create(user: AuthUser, dto: CreatePropertyDto) {
+    await this.subscriptionsService.assertCanCreateProperty(user.id);
+    const totalUnits = this.totalUnitsFromMix(dto);
+    if (totalUnits < 1) {
+      throw new BadRequestException('Property submission must include units');
+    }
+    await this.subscriptionsService.assertCanCreateUnits(
+      user.id,
+      totalUnits,
+    );
     const landlordId = await this.requireLandlordId(user.id);
     const property = await this.prisma.$transaction(async (tx) => {
       const created = await tx.property.create({
@@ -33,8 +53,30 @@ export class PropertiesService {
           state: dto.state.trim(),
           type: dto.type.trim(),
           status: propertyStatusMap[dto.status],
+          verificationStatus: PropertyVerificationStatus.PENDING,
+          listingStatus: PropertyListingStatus.PENDING_REVIEW,
         },
-        include: propertyInclude,
+      });
+      const prefixCounters = new Map<string, number>();
+      await tx.unit.createMany({
+        data: dto.unitMix.flatMap((mix) => {
+          const unitType = mix.unitType.trim();
+          const prefix = mix.unitNamingPrefix?.trim() || unitType;
+          return Array.from({ length: mix.quantity }, () => {
+            const next = (prefixCounters.get(prefix) ?? 0) + 1;
+            prefixCounters.set(prefix, next);
+            return {
+              propertyId: created.id,
+              name: `${prefix} ${next}`,
+              rentAmount: mix.annualRent,
+              bedroomCount: 0,
+              unitType,
+              status: UnitStatus.PENDING_APPROVAL,
+              readinessStatus: UnitReadinessStatus.INCOMPLETE,
+              isPubliclyVisible: false,
+            };
+          });
+        }),
       });
       await tx.activityLog.create({
         data: {
@@ -42,12 +84,41 @@ export class PropertiesService {
           action: 'property.created',
           entityType: 'Property',
           entityId: created.id,
-          metadata: { name: created.name, status: created.status },
+          metadata: {
+            name: created.name,
+            status: created.status,
+            generatedUnits: totalUnits,
+          },
         },
       });
-      return created;
+      const unitMixMetadata = dto.unitMix.map((mix) => ({
+        unitType: mix.unitType,
+        quantity: mix.quantity,
+        annualRent: mix.annualRent,
+        unitNamingPrefix: mix.unitNamingPrefix ?? null,
+      }));
+      await tx.activityLog.create({
+        data: {
+          actorId: user.id,
+          action: 'property.units.generated',
+          entityType: 'Property',
+          entityId: created.id,
+          metadata: {
+            numberOfUnits: totalUnits,
+            unitMix: unitMixMetadata,
+          },
+        },
+      });
+      return tx.property.findUniqueOrThrow({
+        where: { id: created.id },
+        include: propertyInclude,
+      });
     });
     return { message: 'Property created successfully', data: property };
+  }
+
+  private totalUnitsFromMix(dto: CreatePropertyDto) {
+    return dto.unitMix.reduce((total, mix) => total + mix.quantity, 0);
   }
 
   async findAll(user: AuthUser, query: ListPropertiesQueryDto) {

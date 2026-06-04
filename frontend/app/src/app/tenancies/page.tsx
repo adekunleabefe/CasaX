@@ -51,14 +51,26 @@ export default function TenanciesPage() {
 function OperationalTenanciesPage() {
   const [status, setStatus] = useState<TenancyStatus | "">("");
   const tenancies = useTenancies(status);
+  const records = tenancies.data?.items ?? [];
+  const activeResidents = records.filter((item) => item.status === "active").length;
+  const expiringSoon = records.filter((item) => daysUntil(item.endDate) <= 60 && daysUntil(item.endDate) >= 0).length;
+  const renewalsDue = records.filter((item) => daysUntil(item.endDate) <= 30 && item.status === "active").length;
+  const terminated = records.filter((item) => item.status === "terminated").length;
 
   return (
     <main className="p-5 lg:p-8">
       <PageHeader
-        eyebrow="Tenancies"
-        title="Active lease operations"
-        description="Approved applicants converted into accountable tenant and occupancy records."
+        eyebrow="Residents"
+        title="Residents"
+        description="Monitor approved residents, active tenancies, lease periods, and occupancy status across your portfolio."
       />
+
+      <section className="mt-8 grid gap-4 sm:grid-cols-2 xl:grid-cols-4">
+        <ResidentMetric label="Active Residents" value={activeResidents} />
+        <ResidentMetric label="Renewals Due" value={renewalsDue} />
+        <ResidentMetric label="Expiring Soon" value={expiringSoon} />
+        <ResidentMetric label="Terminated" value={terminated} />
+      </section>
 
       <div className="mt-8 flex gap-2 overflow-x-auto pb-2">
         {statuses.map((item) => (
@@ -92,64 +104,113 @@ function OperationalTenanciesPage() {
             <KeyRound className="mx-auto size-8 text-slate-400" />
             <h2 className="mt-4 font-semibold">No tenancies in this view</h2>
             <p className="mt-2 text-sm text-slate-500">
-              Approved applications become tenancy records after conversion.
+              Approved applications become tenancy records after CasaX review.
             </p>
           </Card>
         ) : null}
 
         {tenancies.data?.items.length ? (
-          <div className="grid gap-4 xl:grid-cols-2">
-            {tenancies.data.items.map((tenancy) => {
-              const profile = tenancy.user.profile;
+          <Card className="overflow-hidden p-0">
+            <div className="hidden grid-cols-[1.25fr_1fr_0.9fr_1fr_0.9fr_0.9fr_0.9fr_110px_90px] gap-4 border-b border-slate-100 bg-slate-50/70 px-5 py-4 text-xs font-semibold uppercase tracking-[0.13em] text-slate-400 xl:grid">
+              <span>Resident</span>
+              <span>Property</span>
+              <span>Unit</span>
+              <span>Annual rent</span>
+              <span>Move-in date</span>
+              <span>Lease end date</span>
+              <span>Renewal due</span>
+              <span>Status</span>
+              <span>Actions</span>
+            </div>
+            <div className="divide-y divide-slate-100">
+              {tenancies.data.items.map((tenancy) => {
+                const profile = tenancy.user.profile;
+                const residentName = profile
+                  ? `${profile.firstName} ${profile.lastName}`
+                  : tenancy.user.email;
 
-              return (
-                <Card key={tenancy.id}>
-                  <div className="flex items-start justify-between gap-3">
-                    <div>
-                      <p className="text-sm text-slate-500">
-                        {tenancy.property.name}
-                      </p>
-                      <h2 className="mt-2 text-lg font-semibold">
-                        {profile
-                          ? `${profile.firstName} ${profile.lastName}`
-                          : tenancy.user.email}
-                      </h2>
-                      <p className="mt-1 text-sm text-slate-500">
-                        {tenancy.unit.name} / {tenancy.unit.unitType}
-                      </p>
-                    </div>
-                    <StatusBadge status={tenancy.status} />
-                  </div>
-
-                  <div className="mt-6 grid grid-cols-2 gap-3 rounded-xl bg-slate-50 p-4 text-sm">
-                    <div>
-                      <p className="text-slate-500">Rent</p>
-                      <p className="mt-1 font-semibold">
-                        {formatCurrency(tenancy.rentAmount)}
-                      </p>
-                    </div>
-                    <div>
-                      <p className="text-slate-500">Lease period</p>
-                      <p className="mt-1 font-semibold">
-                        {new Date(tenancy.endDate).toLocaleDateString()}
-                      </p>
-                    </div>
-                  </div>
-
+                return (
                   <Link
-                    className="mt-5 inline-flex items-center gap-2 text-sm font-medium text-emerald-700"
+                    className="block px-5 py-5 transition hover:bg-emerald-50/30 xl:grid xl:grid-cols-[1.25fr_1fr_0.9fr_1fr_0.9fr_0.9fr_0.9fr_110px_90px] xl:items-center xl:gap-4"
                     href={`/tenancies/${tenancy.id}`}
+                    key={tenancy.id}
                   >
-                    View tenancy <ArrowRight className="size-4" />
+                    <div className="flex items-start justify-between gap-4 xl:block">
+                      <div>
+                        <p className="font-semibold text-slate-950">
+                          {residentName}
+                        </p>
+                        <p className="mt-1 text-xs text-slate-500">
+                          {tenancy.user.email}
+                        </p>
+                      </div>
+                      <div className="xl:hidden">
+                        <StatusBadge status={tenancy.status} />
+                      </div>
+                    </div>
+                    <ResidentCell label="Property" value={tenancy.property.name} />
+                    <ResidentCell label="Unit" value={tenancy.unit.name} />
+                    <ResidentCell
+                      label="Annual rent"
+                      value={formatCurrency(tenancy.rentAmount)}
+                    />
+                    <ResidentCell
+                      label="Move-in date"
+                      value={formatDate(tenancy.startDate)}
+                    />
+                    <ResidentCell
+                      label="Lease end date"
+                      value={formatDate(tenancy.endDate)}
+                    />
+                    <ResidentCell
+                      label="Renewal due"
+                      value={formatDate(renewalDueDate(tenancy.endDate))}
+                    />
+                    <div className="mt-4 hidden xl:mt-0 xl:block">
+                      <StatusBadge status={tenancy.status} />
+                    </div>
+                    <span className="mt-4 inline-flex items-center gap-2 text-sm font-medium text-emerald-700 xl:mt-0">
+                      Open <ArrowRight className="size-4" />
+                    </span>
                   </Link>
-                </Card>
-              );
-            })}
-          </div>
+                );
+              })}
+            </div>
+          </Card>
         ) : null}
       </section>
     </main>
   );
+}
+
+function ResidentCell({ label, value }: { label: string; value: string }) {
+  return (
+    <div className="mt-4 flex items-center justify-between gap-4 text-sm xl:mt-0 xl:block">
+      <span className="text-xs font-medium uppercase tracking-[0.12em] text-slate-400 xl:hidden">
+        {label}
+      </span>
+      <span className="font-medium text-slate-700 xl:text-slate-600">{value}</span>
+    </div>
+  );
+}
+
+function ResidentMetric({ label, value }: { label: string; value: number }) {
+  return (
+    <Card>
+      <p className="text-sm text-slate-500">{label}</p>
+      <p className="mt-3 text-2xl font-semibold text-slate-950">{value}</p>
+    </Card>
+  );
+}
+
+function daysUntil(value: string) {
+  return Math.ceil((new Date(value).getTime() - Date.now()) / 86_400_000);
+}
+
+function renewalDueDate(value: string) {
+  const date = new Date(value);
+  date.setDate(date.getDate() - 30);
+  return date.toISOString();
 }
 
 function TenantHomePage() {

@@ -11,12 +11,10 @@ import {
   List,
   MapPin,
   PencilLine,
-  Plus,
   ReceiptText,
   RefreshCw,
   Trash2,
   UserPlus,
-  UsersRound,
 } from "lucide-react";
 import type { PropertyInput, Unit } from "@casax/types";
 import { Button, Card } from "@casax/ui";
@@ -29,10 +27,9 @@ import {
   useDeleteProperty,
   useProperty,
   usePropertyUnits,
-  useUpdateUnit,
   useUpdateProperty,
 } from "@/features/properties/queries";
-import { useTerminateTenancy } from "@/features/tenancies/queries";
+import { getPropertyLifecycleStatus } from "@/lib/property-lifecycle";
 
 export default function PropertyDetailsPage() {
   const { id } = useParams<{ id: string }>();
@@ -50,7 +47,7 @@ export default function PropertyDetailsPage() {
   }
 
   async function deleteProperty() {
-    if (!window.confirm("Remove this property from active operations?")) return;
+    if (!window.confirm("Remove this property from active review?")) return;
     await remove.mutateAsync(id);
     router.push("/properties");
   }
@@ -74,6 +71,7 @@ export default function PropertyDetailsPage() {
   }
 
   const record = property.data;
+  const lifecycleStatus = getPropertyLifecycleStatus(record);
 
   return (
     <main className="p-5 lg:p-8">
@@ -84,7 +82,7 @@ export default function PropertyDetailsPage() {
         backHref="/properties"
         action={
           <div className="flex flex-wrap items-center gap-3">
-            <StatusBadge status={record.status} />
+            <StatusBadge status={lifecycleStatus} />
             {editing ? (
               <Button
                 onClick={() => {
@@ -108,7 +106,7 @@ export default function PropertyDetailsPage() {
               variant="outline"
             >
               <Trash2 className="mr-2 size-4" />
-              Delete
+              Remove record
             </Button>
           </div>
         }
@@ -119,7 +117,8 @@ export default function PropertyDetailsPage() {
           <div className="mb-4">
             <h2 className="text-lg font-semibold">Property details</h2>
             <p className="mt-1 text-sm text-slate-500">
-              Operational identity and location for this property.
+              Review identity, location, and CasaX lifecycle state for this
+              property.
             </p>
           </div>
           {editing ? (
@@ -166,6 +165,10 @@ export default function PropertyDetailsPage() {
                   value={<StatusBadge status={record.status} />}
                 />
                 <Detail
+                  label="CasaX lifecycle"
+                  value={<StatusBadge status={lifecycleStatus} />}
+                />
+                <Detail
                   className="sm:col-span-2 lg:col-span-2"
                   label="Street address"
                   value={record.address}
@@ -188,9 +191,9 @@ export default function PropertyDetailsPage() {
         <section>
           <div className="mb-5 flex flex-col justify-between gap-4 lg:flex-row lg:items-end">
             <div>
-              <h2 className="text-xl font-semibold">Units management</h2>
+              <h2 className="text-xl font-semibold">Unit inventory</h2>
               <p className="mt-1 text-sm text-slate-500">
-                {record._count.units} registered units
+                {record._count.units} submitted units
               </p>
             </div>
             <div className="flex flex-wrap items-center gap-2">
@@ -228,16 +231,10 @@ export default function PropertyDetailsPage() {
                   List
                 </button>
               </div>
-              <Button asChild variant="outline">
-                <Link href={`/properties/${id}/caretakers`}>
-                  <UsersRound className="mr-2 size-4" /> Caretakers
-                </Link>
-              </Button>
-              <Button asChild variant="outline">
-                <Link href={`/properties/${id}/units/new`}>
-                  <Plus className="mr-2 size-4" /> Add unit
-                </Link>
-              </Button>
+              <p className="max-w-sm text-sm leading-6 text-slate-500">
+                Units are generated from the property submission and refined by
+                CasaX during verification.
+              </p>
             </div>
           </div>
           {units.isLoading ? <LoadingCards /> : null}
@@ -262,7 +259,8 @@ export default function PropertyDetailsPage() {
               <DoorOpen className="mx-auto size-7 text-slate-400" />
               <h3 className="mt-4 font-semibold">No units registered</h3>
               <p className="mt-2 text-sm text-slate-500">
-                Add units to begin tracking occupancy and vacancies.
+                CasaX Operations will add and configure units during property
+                setup and verification.
               </p>
             </Card>
           ) : null}
@@ -323,7 +321,7 @@ function UnitCard({ unit }: { unit: Unit }) {
       ) : null}
       {unit.status === "vacant" || unit.status === "pending_approval" ? (
         <p className="mt-4 text-sm leading-6 text-slate-500">
-          Add a new or existing tenant to this unit.
+          Submit tenant details for CasaX review or record an existing occupant.
         </p>
       ) : null}
       <UnitActions className="mt-5" unit={unit} />
@@ -398,25 +396,6 @@ function UnitList({ units }: { units: Unit[] }) {
 }
 
 function UnitActions({ unit, className }: { unit: Unit; className?: string }) {
-  const update = useUpdateUnit(unit.id, unit.propertyId);
-  const tenancyId = unit.activeTenancy?.id ?? "";
-  const terminate = useTerminateTenancy(tenancyId, unit.id, unit.propertyId);
-
-  async function publishVacancy() {
-    try {
-      await update.mutateAsync({
-        name: unit.name,
-        rentAmount: unit.rentAmount,
-        bedroomCount: unit.bedroomCount,
-        unitType: unit.unitType,
-        status: unit.status,
-        isPubliclyVisible: true,
-      });
-    } catch {
-      // Action feedback is rendered immediately below the unit actions.
-    }
-  }
-
   return (
     <div
       className={cn("flex flex-wrap items-center gap-x-4 gap-y-2", className)}
@@ -424,21 +403,19 @@ function UnitActions({ unit, className }: { unit: Unit; className?: string }) {
       {(unit.status === "vacant" || unit.status === "pending_approval") && (
         <Link
           className="inline-flex items-center gap-2 text-sm font-medium text-emerald-700"
-          href={`/units/${unit.id}/add-tenant`}
+          href="mailto:hello@casax.ng?subject=Tenant%20onboarding%20request"
         >
           <UserPlus className="size-4" />
-          Add tenant
+          Request tenant onboarding
         </Link>
       )}
       {unit.status === "vacant" && !unit.isPubliclyVisible ? (
-        <button
+        <a
           className="inline-flex text-sm font-medium text-emerald-700"
-          disabled={update.isPending}
-          onClick={() => void publishVacancy()}
-          type="button"
+          href="mailto:hello@casax.ng?subject=Vacancy%20publishing%20request"
         >
-          Publish vacancy
-        </button>
+          Request vacancy publishing
+        </a>
       ) : null}
       {unit.status === "occupied" && unit.activeTenancy ? (
         <Link
@@ -453,34 +430,28 @@ function UnitActions({ unit, className }: { unit: Unit; className?: string }) {
       unit.activeTenancy ? (
         <Link
           className="inline-flex items-center gap-2 text-sm font-medium text-emerald-700"
-          href={`/payments/new?tenancyId=${unit.activeTenancy.id}`}
+          href="/payments"
         >
           <ReceiptText className="size-4" />
-          Record payment
+          View rent records
         </Link>
       ) : null}
       {unit.status === "occupied" && unit.renewableTenancyId ? (
         <Link
           className="inline-flex items-center gap-2 text-sm font-medium text-emerald-700"
-          href={`/tenancies/${unit.renewableTenancyId}/renew`}
+          href="mailto:hello@casax.ng?subject=Tenancy%20renewal%20request"
         >
           <RefreshCw className="size-4" />
-          Renew tenancy
+          Request renewal
         </Link>
       ) : null}
       {unit.status === "occupied" && unit.activeTenancy?.status === "active" ? (
-        <button
+        <a
           className="inline-flex text-sm font-medium text-orange-700"
-          disabled={terminate.isPending}
-          onClick={() => {
-            const reason =
-              window.prompt("Reason for termination (optional)") ?? undefined;
-            terminate.mutate(reason);
-          }}
-          type="button"
+          href="mailto:hello@casax.ng?subject=Tenancy%20termination%20request"
         >
-          Terminate tenancy
-        </button>
+          Request termination
+        </a>
       ) : null}
       {unit.status === "occupied" &&
       unit.agreementSummary &&
@@ -497,13 +468,8 @@ function UnitActions({ unit, className }: { unit: Unit; className?: string }) {
         className="inline-flex text-sm font-medium text-slate-500"
         href={`/units/${unit.id}`}
       >
-        Manage unit
+        Review unit
       </Link>
-      {update.error || terminate.error ? (
-        <p className="w-full text-xs text-orange-700">
-          {(update.error ?? terminate.error)?.message}
-        </p>
-      ) : null}
     </div>
   );
 }

@@ -4,11 +4,15 @@ import { IsEnum, IsInt, IsOptional, IsUUID, Max, Min } from 'class-validator';
 
 export enum ApplicationStatusInput {
   PENDING = 'pending',
+  SUBMITTED = 'submitted',
+  INSPECTION_REQUIRED = 'inspection_required',
+  INSPECTION_SCHEDULED = 'inspection_scheduled',
   INSPECTION_BOOKED = 'inspection_booked',
   UNDER_REVIEW = 'under_review',
   APPROVED = 'approved',
   REJECTED = 'rejected',
   CONVERTED_TO_TENANT = 'converted_to_tenant',
+  CONVERTED_TO_RESIDENT = 'converted_to_resident',
 }
 
 export class ListApplicationsQueryDto {

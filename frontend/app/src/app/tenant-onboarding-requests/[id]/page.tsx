@@ -42,7 +42,7 @@ export default function TenantOnboardingRequestPage() {
   const request = record.data;
   const isLandlord = currentUser.data?.role === "landlord";
   const canDecide = isLandlord && request.status === "pending";
-  const caretaker = request.submittedByCaretaker?.user.profile;
+  const submittedThroughCasaX = Boolean(request.submittedByCaretaker);
   return (
     <main className="p-5 lg:p-8">
       <PageHeader
@@ -68,11 +68,11 @@ export default function TenantOnboardingRequestPage() {
             />
             <Info
               icon={UserRound}
-              label="Submitted through"
+              label="Source"
               value={
-                caretaker
-                  ? `${caretaker.firstName} ${caretaker.lastName}`
-                  : "Landlord submission"
+                submittedThroughCasaX
+                  ? "CasaX field submission"
+                  : "CasaX review workflow"
               }
             />
           </div>
@@ -96,7 +96,7 @@ export default function TenantOnboardingRequestPage() {
         {isLandlord ? (
           <Card className="bg-slate-950 text-white">
             <ShieldCheck className="size-6 text-emerald-400" />
-            <h2 className="mt-5 text-lg font-semibold">Landlord approval</h2>
+            <h2 className="mt-5 text-lg font-semibold">Review decision</h2>
             <p className="mt-2 text-sm leading-6 text-slate-300">
               Approval creates tenancy, occupancy, and an agreement draft in
               one recorded transaction.

@@ -46,13 +46,12 @@ function SetupAccountForm() {
 
   return (
     <Card className="border-slate-200 p-7 shadow-xl shadow-slate-200/40 sm:p-9">
-      <p className="text-sm font-medium text-emerald-700">Tenant access</p>
+      <p className="text-sm font-medium text-emerald-700">CasaX access</p>
       <h1 className="mt-3 text-3xl font-semibold tracking-tight">
         Set up your account
       </h1>
       <p className="mt-3 text-sm leading-6 text-slate-500">
-        Create a secure password to access your tenancy, agreement, and
-        occupancy workspace.
+        Create a secure password to activate your CasaX workspace.
       </p>
       <p className="mt-4 rounded-xl bg-emerald-50 px-4 py-3 text-xs text-emerald-800">
         Secure link valid until{" "}
@@ -128,7 +127,7 @@ function InvalidInvitation({ message }: { message?: string }) {
         This setup link is invalid
       </h1>
       <p className="mt-3 text-sm leading-6 text-slate-500">
-        {message ?? "Ask your landlord to send a new CasaX tenant invitation."}
+        {message ?? "Ask CasaX to send a new account setup invitation."}
       </p>
       <Button className="mt-8 w-full" asChild>
         <Link href="/auth/login">Return to sign in</Link>

@@ -18,7 +18,7 @@ import { createHash, randomBytes } from 'crypto';
 import { PrismaService } from '../../prisma/prisma.service';
 import { AuthUser, JwtPayload } from '../../common/types/auth-user.type';
 import { LoginDto } from './dto/login.dto';
-import { RegisterDto, SelfRegistrationRole } from './dto/register.dto';
+import { RegisterDto } from './dto/register.dto';
 import {
   SetupAccountDto,
   ValidateSetupAccountTokenDto,
@@ -30,6 +30,7 @@ import {
   AuthTokenDto,
   ResetPasswordDto,
 } from './dto/email-auth.dto';
+import { SubscriptionsService } from '../subscriptions/subscriptions.service';
 
 interface SessionTokens {
   accessToken: string;
@@ -45,6 +46,7 @@ export class AuthService {
     private readonly jwtService: JwtService,
     private readonly configService: ConfigService,
     private readonly emailService: EmailService,
+    private readonly subscriptionsService: SubscriptionsService,
   ) {}
 
   async register(dto: RegisterDto) {
@@ -60,16 +62,12 @@ export class AuthService {
       }
 
       const passwordHash = await bcrypt.hash(dto.password, 12);
-      const role =
-        dto.role === SelfRegistrationRole.LANDLORD
-          ? UserRole.LANDLORD
-          : UserRole.APPLICANT;
       const user = await this.prisma.$transaction(async (tx) => {
         const createdUser = await tx.user.create({
           data: {
             email,
             passwordHash,
-            role,
+            role: UserRole.APPLICANT,
             profile: {
               create: {
                 firstName: dto.firstName.trim(),
@@ -79,11 +77,7 @@ export class AuthService {
           },
         });
 
-        if (role === UserRole.LANDLORD) {
-          await tx.landlord.create({ data: { userId: createdUser.id } });
-        } else {
-          await tx.applicant.create({ data: { userId: createdUser.id } });
-        }
+        await tx.applicant.create({ data: { userId: createdUser.id } });
 
         return createdUser;
       });
@@ -92,6 +86,7 @@ export class AuthService {
         user.id,
         user.email,
         `${dto.firstName.trim()} ${dto.lastName.trim()}`,
+        user.role,
       );
       return {
         user: this.toAuthUser(user),
@@ -144,7 +139,7 @@ export class AuthService {
       const name = user.profile
         ? `${user.profile.firstName} ${user.profile.lastName}`
         : user.email;
-      await this.issueVerificationEmail(user.id, user.email, name);
+      await this.issueVerificationEmail(user.id, user.email, name, user.role);
     }
   }
 
@@ -297,6 +292,18 @@ export class AuthService {
           emailVerifiedAt: invitation.user.emailVerifiedAt ?? now,
         },
       });
+      if (activated.role === UserRole.LANDLORD) {
+        const landlord = await tx.landlord.findUnique({
+          where: { userId: activated.id },
+          include: { landlordSubscriptions: true },
+        });
+        if (landlord && landlord.landlordSubscriptions.length === 0) {
+          await this.subscriptionsService.createTrialForLandlord(
+            tx,
+            landlord.id,
+          );
+        }
+      }
       await tx.tenantInvitation.updateMany({
         where: {
           userId: invitation.userId,
@@ -453,6 +460,7 @@ export class AuthService {
     userId: string,
     email: string,
     name: string,
+    role: UserRole,
   ): Promise<boolean> {
     try {
       const { token, expiresAt } = this.createEmailToken();
@@ -469,8 +477,14 @@ export class AuthService {
           },
         }),
       ]);
-      return (await this.emailService.sendVerificationEmail({ email, name, token }))
-        .success;
+      return (
+        await this.emailService.sendVerificationEmail({
+          email,
+          name,
+          role,
+          token,
+        })
+      ).success;
     } catch (error) {
       this.logger.error(
         `Unable to queue email verification for ${email}`,

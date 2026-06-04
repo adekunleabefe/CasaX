@@ -6,6 +6,7 @@ import {
 import { Prisma } from '@prisma/client';
 import { AuthUser } from '../../common/types/auth-user.type';
 import { PrismaService } from '../../prisma/prisma.service';
+import { SubscriptionsService } from '../subscriptions/subscriptions.service';
 import { AssignCaretakerDto } from './dto/assign-caretaker.dto';
 
 const assignmentInclude = {
@@ -21,9 +22,13 @@ const assignmentInclude = {
 
 @Injectable()
 export class CaretakersService {
-  constructor(private readonly prisma: PrismaService) {}
+  constructor(
+    private readonly prisma: PrismaService,
+    private readonly subscriptionsService: SubscriptionsService,
+  ) {}
 
   async assign(user: AuthUser, propertyId: string, dto: AssignCaretakerDto) {
+    await this.subscriptionsService.assertCanAssignCaretaker(user.id);
     const landlordId = await this.requireLandlordId(user.id);
     await this.assertOwnedProperty(propertyId, landlordId);
     const caretaker = await this.prisma.caretaker.findFirst({

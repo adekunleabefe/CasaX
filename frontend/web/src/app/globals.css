@@ -24,3 +24,122 @@ body {
   background: #d1fae5;
   color: #0f172a;
 }
+
+.casax-hero-image {
+  animation: casax-hero-fade 30s ease-in-out infinite;
+  opacity: 0;
+  transform: scale(1);
+  will-change: opacity, transform;
+}
+
+.casax-auth-image {
+  animation: casax-auth-fade 30s ease-in-out infinite;
+  opacity: 0;
+  transform: scale(1);
+  will-change: opacity, transform;
+}
+
+.casax-auth-card {
+  animation: casax-auth-card-in 520ms ease-out both;
+}
+
+.casax-auth-trust-card {
+  animation: casax-auth-trust-in 560ms ease-out both;
+}
+
+@keyframes casax-hero-fade {
+  0% {
+    opacity: 0;
+    transform: scale(1);
+  }
+
+  8% {
+    opacity: 1;
+  }
+
+  28% {
+    opacity: 1;
+  }
+
+  38% {
+    opacity: 0;
+    transform: scale(1.06);
+  }
+
+  100% {
+    opacity: 0;
+    transform: scale(1.06);
+  }
+}
+
+@keyframes casax-auth-fade {
+  0% {
+    opacity: 0;
+    transform: scale(1);
+  }
+
+  8% {
+    opacity: 0.86;
+  }
+
+  30% {
+    opacity: 0.86;
+  }
+
+  40% {
+    opacity: 0;
+    transform: scale(1.055);
+  }
+
+  100% {
+    opacity: 0;
+    transform: scale(1.055);
+  }
+}
+
+@keyframes casax-auth-card-in {
+  from {
+    opacity: 0;
+    transform: translateY(14px);
+  }
+
+  to {
+    opacity: 1;
+    transform: translateY(0);
+  }
+}
+
+@keyframes casax-auth-trust-in {
+  from {
+    opacity: 0;
+    transform: translateY(10px);
+  }
+
+  to {
+    opacity: 1;
+    transform: translateY(0);
+  }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .casax-hero-image,
+  .casax-auth-image,
+  .casax-auth-card,
+  .casax-auth-trust-card {
+    animation: none;
+    transform: none;
+  }
+
+  .casax-hero-image,
+  .casax-auth-image {
+    opacity: 0;
+  }
+
+  .casax-hero-image:first-child {
+    opacity: 1;
+  }
+
+  .casax-auth-image:first-child {
+    opacity: 0.86;
+  }
+}

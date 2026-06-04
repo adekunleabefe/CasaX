@@ -7,17 +7,15 @@ import { useQueryClient } from "@tanstack/react-query";
 import {
   Bell,
   BellRing,
+  BarChart3,
   Building2,
   ClipboardCheck,
   CreditCard,
   FileText,
   House,
   KeyRound,
-  Landmark,
   LayoutDashboard,
   Settings,
-  UsersRound,
-  UserPlus,
   Wrench,
 } from "lucide-react";
 import { Badge, Button, Card, Logo } from "@casax/ui";
@@ -25,6 +23,14 @@ import type { NavigationItem, UserRole } from "@casax/types";
 import { useCurrentUser } from "@/features/auth/queries";
 import { ApiError, recoverFromUnauthorized } from "@/services/api";
 import { logout } from "@/services/auth";
+
+const ADMIN_URL =
+  process.env.NEXT_PUBLIC_ADMIN_URL ?? "http://localhost:3002/dashboard";
+const WEB_URL = (process.env.NEXT_PUBLIC_WEB_URL ?? "http://localhost:3000").replace(
+  /\/$/,
+  "",
+);
+const WEB_ACCOUNT_URL = `${WEB_URL}/applicant`;
 
 const navigation: (NavigationItem & {
   icon: typeof House;
@@ -35,37 +41,31 @@ const navigation: (NavigationItem & {
     label: "Overview",
     href: "/dashboard",
     icon: LayoutDashboard,
-    roles: ["landlord", "caretaker", "tenant", "applicant"],
+    roles: ["landlord", "caretaker", "tenant"],
   },
   {
-    label: "Properties",
+    label: "Portfolio",
     href: "/properties",
     icon: Building2,
     roles: ["landlord"],
   },
   {
-    label: "Applications",
+    label: "Vacancies",
     href: "/applications",
     icon: ClipboardCheck,
-    roles: ["landlord", "caretaker", "applicant"],
-  },
-  {
-    label: "Caretakers",
-    href: "/caretakers",
-    icon: UsersRound,
     roles: ["landlord"],
   },
   {
-    label: "Tenant onboarding",
-    href: "/tenant-onboarding-requests",
-    icon: UserPlus,
-    roles: ["landlord", "caretaker"],
-  },
-  {
-    label: "Tenancies",
+    label: "Residents",
     href: "/tenancies",
     icon: KeyRound,
-    roles: ["landlord", "caretaker"],
+    roles: ["landlord"],
+  },
+  {
+    label: "Tenancy records",
+    href: "/tenancies",
+    icon: KeyRound,
+    roles: ["caretaker"],
   },
   {
     label: "My home",
@@ -74,22 +74,28 @@ const navigation: (NavigationItem & {
     roles: ["tenant"],
   },
   {
-    label: "Occupancy",
-    href: "/occupancy",
-    icon: House,
-    roles: ["landlord", "caretaker"],
+    label: "Rent & payouts",
+    href: "/payments",
+    icon: CreditCard,
+    roles: ["landlord"],
+  },
+  {
+    label: "Rent visibility",
+    href: "/payments",
+    icon: CreditCard,
+    roles: ["caretaker"],
   },
   {
     label: "Payments",
     href: "/payments",
     icon: CreditCard,
-    roles: ["landlord", "caretaker", "tenant"],
+    roles: ["tenant"],
   },
   {
-    label: "Remittances",
+    label: "Payouts",
     href: "/remittances",
-    icon: Landmark,
-    roles: ["landlord", "caretaker"],
+    icon: CreditCard,
+    roles: ["caretaker"],
   },
   {
     label: "Maintenance",
@@ -98,49 +104,71 @@ const navigation: (NavigationItem & {
     roles: ["landlord", "caretaker", "tenant"],
   },
   {
+    label: "Reports",
+    href: "/reports",
+    icon: BarChart3,
+    roles: ["landlord"],
+  },
+  {
+    label: "Management package",
+    href: "/subscription",
+    icon: CreditCard,
+    roles: ["landlord"],
+  },
+  {
     label: "Settings",
     href: "/settings",
     icon: Settings,
-    roles: ["landlord", "caretaker", "applicant", "tenant"],
+    roles: ["landlord", "caretaker", "tenant"],
   },
 ];
 
 const tenantNavigation: (NavigationItem & { icon: typeof House })[] = [
   { label: "Overview", href: "/dashboard", icon: LayoutDashboard },
-  { label: "My home", href: "/tenancies", icon: House },
-  { label: "Rent", href: "/rent", icon: CreditCard },
-  { label: "Payments", href: "/payments", icon: CreditCard },
-  { label: "Agreement", href: "/agreement", icon: FileText },
+  { label: "My Home", href: "/tenancies", icon: House },
+  { label: "Rent", href: "/payments", icon: CreditCard },
+  { label: "Lease", href: "/agreement", icon: FileText },
   { label: "Maintenance", href: "/maintenance", icon: Wrench },
+  { label: "Support", href: "/support", icon: BellRing },
   { label: "Documents", href: "/documents", icon: KeyRound },
-  { label: "Notifications", href: "/notifications", icon: BellRing },
-  { label: "Settings", href: "/settings", icon: Settings },
+  { label: "Profile", href: "/settings", icon: Settings },
 ];
 
 const routePolicies: {
   route: string;
   roles: UserRole[];
 }[] = [
-  { route: "/dashboard", roles: ["landlord", "caretaker", "tenant", "applicant"] },
+  {
+    route: "/dashboard",
+    roles: ["landlord", "caretaker", "tenant"],
+  },
   { route: "/rent", roles: ["tenant"] },
   { route: "/agreement", roles: ["tenant"] },
   { route: "/documents", roles: ["tenant"] },
   { route: "/notifications", roles: ["tenant"] },
+  { route: "/support", roles: ["tenant"] },
   { route: "/properties", roles: ["landlord"] },
+  { route: "/portfolio", roles: ["landlord"] },
   { route: "/units", roles: ["landlord", "caretaker"] },
-  { route: "/applications/new", roles: ["landlord", "caretaker"] },
-  { route: "/applications", roles: ["landlord", "caretaker", "applicant"] },
-  { route: "/caretakers", roles: ["landlord"] },
-  { route: "/tenant-onboarding-requests", roles: ["landlord", "caretaker"] },
+  { route: "/applications/new", roles: ["caretaker"] },
+  { route: "/applications", roles: ["landlord", "caretaker"] },
+  { route: "/caretakers", roles: [] },
+  { route: "/subscription", roles: ["landlord"] },
+  { route: "/tenant-onboarding-requests", roles: ["caretaker"] },
   { route: "/tenancies/new", roles: ["landlord"] },
   { route: "/tenancies", roles: ["landlord", "caretaker", "tenant"] },
   { route: "/occupancy", roles: ["landlord", "caretaker"] },
-  { route: "/payments/new", roles: ["landlord", "caretaker"] },
+  { route: "/payments/new", roles: ["caretaker"] },
   { route: "/payments", roles: ["landlord", "caretaker", "tenant"] },
+  { route: "/remittances/new", roles: ["caretaker"] },
   { route: "/remittances", roles: ["landlord", "caretaker"] },
   { route: "/maintenance", roles: ["landlord", "caretaker", "tenant"] },
+  { route: "/reports", roles: ["landlord"] },
   { route: "/vacancies", roles: ["landlord", "caretaker"] },
-  { route: "/settings", roles: ["landlord", "caretaker", "applicant", "tenant"] },
+  {
+    route: "/settings",
+    roles: ["landlord", "caretaker", "tenant"],
+  },
 ];
 
 function matchesRoute(pathname: string, route: string) {
@@ -152,6 +180,10 @@ function canAccessRoute(pathname: string, role?: UserRole) {
 
   if (pathname.startsWith("/tenancies/") && pathname.endsWith("/renew")) {
     return role === "landlord";
+  }
+
+  if (role === "landlord" && pathname.includes("/caretakers")) {
+    return false;
   }
 
   const policy = routePolicies
@@ -179,6 +211,24 @@ export function DashboardShell({ children }: { children: ReactNode }) {
   }, [currentUser.error, queryClient]);
 
   useEffect(() => {
+    if (
+      !isAuthRoute &&
+      currentUser.isFetchedAfterMount &&
+      currentUser.data?.role === "admin"
+    ) {
+      window.location.replace(ADMIN_URL);
+      return;
+    }
+
+    if (
+      !isAuthRoute &&
+      currentUser.isFetchedAfterMount &&
+      currentUser.data?.role === "applicant"
+    ) {
+      window.location.replace(WEB_ACCOUNT_URL);
+      return;
+    }
+
     if (
       !isAuthRoute &&
       currentUser.isFetchedAfterMount &&
@@ -217,6 +267,23 @@ export function DashboardShell({ children }: { children: ReactNode }) {
   }
 
   const currentRole = currentUser.data?.role;
+
+  if (currentRole === "applicant") {
+    return (
+      <div className="flex min-h-screen items-center justify-center bg-slate-50 p-5">
+        <Card className="w-full max-w-md text-center">
+          <Logo />
+          <h1 className="mt-8 text-xl font-semibold text-slate-950">
+            Redirecting to your CasaX account
+          </h1>
+          <p className="mt-3 text-sm leading-6 text-slate-500">
+            Applicant accounts now live on casax.ng for saved rentals,
+            inspections, and applications.
+          </p>
+        </Card>
+      </div>
+    );
+  }
 
   if (currentRole && !canAccessRoute(pathname, currentRole)) {
     return (
@@ -272,7 +339,7 @@ export function DashboardShell({ children }: { children: ReactNode }) {
           </h1>
           <p className="mt-3 text-sm leading-6 text-slate-500">
             Your session is no longer active. Sign in again to access your
-            operations workspace.
+            CasaX workspace.
           </p>
           <Button asChild className="mt-7 w-full">
             <Link href="/auth/login">Continue to sign in</Link>
@@ -375,7 +442,7 @@ function TenantLayout({
     <div className="min-h-screen bg-[radial-gradient(circle_at_top_left,#ecfdf5,transparent_34%),#f8fafc] lg:pl-64">
       <aside className="fixed inset-y-0 left-0 z-40 hidden w-64 border-r border-slate-200 bg-white/95 p-5 shadow-sm shadow-slate-200/50 lg:flex lg:flex-col">
         <Logo />
-        <Badge className="mt-7 w-fit">Tenant workspace</Badge>
+        <Badge className="mt-7 w-fit">Resident workspace</Badge>
         <nav className="mt-7 space-y-1 overflow-y-auto pb-8">
           {tenantNavigation.map(({ label, href, icon: Icon }) => (
             <Link

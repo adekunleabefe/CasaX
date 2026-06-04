@@ -71,6 +71,7 @@ export function PaymentEditForm({
           Status
           <select className={inputClass} {...form.register("status")}>
             <option value="pending">Pending</option>
+            <option value="processing">Processing</option>
             <option value="paid">Paid</option>
             <option value="overdue">Overdue</option>
             <option value="failed">Failed</option>

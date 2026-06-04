@@ -4,9 +4,9 @@ import { CheckCircle2, ShieldCheck } from "lucide-react";
 import { Logo } from "@casax/ui";
 
 const assurances = [
-  "Property and occupancy visibility",
-  "Caretaker accountability",
-  "Rent collection transparency",
+  "Landlord workspace",
+  "Resident portal",
+  "Secure operations access",
 ];
 
 export default function AuthLayout({ children }: { children: ReactNode }) {
@@ -18,10 +18,11 @@ export default function AuthLayout({ children }: { children: ReactNode }) {
         </Link>
         <div>
           <p className="text-sm font-medium text-emerald-400">
-            CasaX operations workspace
+            CasaX operations portal
           </p>
           <h1 className="mt-5 max-w-md text-4xl font-semibold leading-tight tracking-tight">
-            Visibility for every unit, occupant and payment flow.
+            Portfolio visibility and resident operations stay connected after
+            onboarding.
           </h1>
           <div className="mt-10 space-y-4">
             {assurances.map((assurance) => (

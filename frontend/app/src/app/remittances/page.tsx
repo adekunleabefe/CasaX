@@ -1,42 +1,74 @@
 "use client";
 
 import Link from "next/link";
-import { ArrowRight, Landmark, Plus } from "lucide-react";
+import { ArrowRight, Landmark } from "lucide-react";
 import { Button, Card } from "@casax/ui";
 import { formatCurrency } from "@casax/utils";
 import { PageHeader } from "@/components/operations/page-header";
 import { ErrorState, LoadingCards } from "@/components/operations/query-states";
 import { StatusBadge } from "@/components/operations/status-badge";
-import { useRemittances } from "@/features/finance/queries";
+import { useLandlordRemittances } from "@/features/finance/queries";
 
 export default function RemittancesPage() {
-  const remittances = useRemittances();
+  const remittances = useLandlordRemittances();
+  const totalPending =
+    remittances.data?.items
+      .filter((record) => ["pending", "approved", "processing"].includes(record.status))
+      .reduce((sum, record) => sum + record.netAmount, 0) ?? 0;
+  const totalPaid =
+    remittances.data?.items
+      .filter((record) => record.status === "paid")
+      .reduce((sum, record) => sum + record.netAmount, 0) ?? 0;
 
   return (
     <main className="p-5 lg:p-8">
       <PageHeader
-        eyebrow="Payment remitted"
-        title="Caretaker remittance tracking"
-        description="Keep collected rent distinct from funds actually transferred to the landlord."
+        eyebrow="CasaX payouts"
+        title="Landlord remittance"
+        description="Track collected rent and payout status from CasaX to your landlord account."
         action={
-          <Button asChild>
-            <Link href="/remittances/new">
-              <Plus className="mr-2 size-4" /> Record remittance
-            </Link>
+          <Button asChild variant="outline">
+            <Link href="/payments">View rent collection</Link>
           </Button>
         }
       />
-      <section className="mt-8">
+
+      <section className="mt-8 grid gap-4 md:grid-cols-3">
+        <Card>
+          <p className="text-sm text-slate-500">Expected remittance</p>
+          <p className="mt-3 text-2xl font-semibold">
+            {formatCurrency(totalPending)}
+          </p>
+        </Card>
+        <Card>
+          <p className="text-sm text-slate-500">Paid remittance</p>
+          <p className="mt-3 text-2xl font-semibold">
+            {formatCurrency(totalPaid)}
+          </p>
+        </Card>
+        <Card>
+          <p className="text-sm text-slate-500">Payout visibility</p>
+          <p className="mt-3 text-sm leading-6 text-slate-600">
+            Each payout separates gross rent, adjustments if any, and net
+            remittance.
+          </p>
+        </Card>
+      </section>
+
+      <section className="mt-6">
         {remittances.isLoading ? <LoadingCards /> : null}
         {remittances.isError ? (
-          <ErrorState title="Unable to load remittances" onRetry={() => void remittances.refetch()} />
+          <ErrorState
+            title="Unable to load remittances"
+            onRetry={() => void remittances.refetch()}
+          />
         ) : null}
         {remittances.data?.items.length === 0 ? (
           <Card className="py-14 text-center">
             <Landmark className="mx-auto size-8 text-slate-400" />
-            <h2 className="mt-4 font-semibold">No remittance records yet</h2>
+            <h2 className="mt-4 font-semibold">No payout records yet</h2>
             <p className="mt-2 text-sm text-slate-500">
-              Paid caretaker collections remain pending remittance until transferred.
+              CasaX payouts will appear here after tenant rent is collected.
             </p>
           </Card>
         ) : null}
@@ -46,16 +78,15 @@ export default function RemittancesPage() {
               <Card key={record.id}>
                 <div className="flex items-start justify-between gap-4">
                   <div>
-                    <p className="text-sm text-slate-500">{record.property.name}</p>
+                    <p className="text-sm text-slate-500">
+                      {record.property.name}
+                    </p>
                     <p className="mt-2 text-2xl font-semibold">
-                      {formatCurrency(record.amount)}
+                      {formatCurrency(record.netAmount)}
                     </p>
                     <p className="mt-2 text-xs text-slate-500">
-                      {record.payments.length} payment record
-                      {record.payments.length === 1 ? "" : "s"} /{" "}
-                      {record.caretaker.user.profile
-                        ? `${record.caretaker.user.profile.firstName} ${record.caretaker.user.profile.lastName}`
-                        : record.caretaker.user.email}
+                      Gross {formatCurrency(record.grossAmount)} / adjustment{" "}
+                      {formatCurrency(record.platformFee)}
                     </p>
                   </div>
                   <StatusBadge status={record.status} />
@@ -64,7 +95,7 @@ export default function RemittancesPage() {
                   className="mt-6 inline-flex items-center gap-2 text-sm font-medium text-emerald-700"
                   href={`/remittances/${record.id}`}
                 >
-                  Review remittance <ArrowRight className="size-4" />
+                  View payout <ArrowRight className="size-4" />
                 </Link>
               </Card>
             ))}

@@ -28,7 +28,6 @@ import {
   useUnit,
   useUpdateUnit,
 } from "@/features/properties/queries";
-import { useTerminateTenancy } from "@/features/tenancies/queries";
 
 export default function UnitDetailsPage() {
   const { id } = useParams<{ id: string }>();
@@ -38,8 +37,6 @@ export default function UnitDetailsPage() {
   const propertyId = unit.data?.propertyId;
   const update = useUpdateUnit(id, propertyId);
   const remove = useDeleteUnit(propertyId);
-  const tenancyId = unit.data?.activeTenancy?.id ?? "";
-  const terminate = useTerminateTenancy(tenancyId, id, propertyId);
   const [editing, setEditing] = useState(false);
 
   async function updateUnit(values: UnitInput) {
@@ -48,7 +45,7 @@ export default function UnitDetailsPage() {
   }
 
   async function deleteUnit() {
-    if (!window.confirm("Remove this unit from active operations?")) return;
+    if (!window.confirm("Remove this unit from active review?")) return;
     await remove.mutateAsync(id);
     router.push(propertyId ? `/properties/${propertyId}` : "/properties");
   }
@@ -90,7 +87,7 @@ export default function UnitDetailsPage() {
         description={
           parent
             ? `${parent.name} / ${parent.city}, ${parent.state}`
-            : "Manage operational and vacancy status."
+            : "Review unit readiness and vacancy status."
         }
         backHref={
           isLandlord
@@ -138,7 +135,7 @@ export default function UnitDetailsPage() {
           <div className="mb-4">
             <h2 className="text-lg font-semibold">Unit details</h2>
             <p className="mt-1 text-sm text-slate-500">
-              Operational identity and vacancy settings for this unit.
+              Review identity, rent terms, and vacancy readiness for this unit.
             </p>
           </div>
           {editing && isLandlord ? (
@@ -178,47 +175,19 @@ export default function UnitDetailsPage() {
         {isOccupied ? (
           <CurrentOccupantCard
             canRecordPayment={canRecordPayment}
-            error={terminate.error?.message}
             isLandlord={isLandlord}
             occupantEmail={occupant?.email}
             occupantName={occupantName}
             occupantPhone={occupant?.profile?.phone}
-            onTerminate={async () => {
-              if (!tenancy) return;
-              const reason =
-                window.prompt("Reason for termination (optional)") ?? undefined;
-              try {
-                await terminate.mutateAsync(reason);
-                await unit.refetch();
-              } catch {
-                // The operational card renders mutation feedback inline.
-              }
-            }}
             payment={record.latestPaymentSummary}
             record={record}
             tenancy={tenancy}
-            terminatePending={terminate.isPending}
           />
         ) : (
           <VacantUnitActions
             isLandlord={isLandlord}
             error={update.error?.message}
             isPublished={record.isPubliclyVisible}
-            isPending={update.isPending}
-            onPublish={async () => {
-              try {
-                await updateUnit({
-                  name: record.name,
-                  rentAmount: record.rentAmount,
-                  bedroomCount: record.bedroomCount,
-                  unitType: record.unitType,
-                  status: record.status,
-                  isPubliclyVisible: true,
-                });
-              } catch {
-                // The vacancy card renders mutation feedback inline.
-              }
-            }}
             unitId={record.id}
           />
         )}
@@ -246,28 +215,22 @@ export default function UnitDetailsPage() {
 
 function CurrentOccupantCard({
   canRecordPayment,
-  error,
   isLandlord,
   occupantEmail,
   occupantName,
   occupantPhone,
-  onTerminate,
   payment,
   record,
   tenancy,
-  terminatePending,
 }: {
   canRecordPayment: boolean;
-  error?: string;
   isLandlord: boolean;
   occupantEmail?: string;
   occupantName: string;
   occupantPhone?: string | null;
-  onTerminate: () => Promise<void>;
   payment: Unit["latestPaymentSummary"];
   record: Unit;
   tenancy: Unit["activeTenancy"];
-  terminatePending: boolean;
 }) {
   if (!tenancy) {
     return (
@@ -364,29 +327,30 @@ function CurrentOccupantCard({
           </Button>
           {canRecordPayment && record.agreementSummary ? (
             <Button asChild variant="outline">
-              <Link href={`/payments/new?tenancyId=${tenancy.id}`}>
+              <Link href="/payments">
                 <ReceiptText className="mr-2 size-4" />
-                Record payment
+                View rent records
               </Link>
             </Button>
           ) : null}
           {isLandlord &&
           (tenancy.status === "active" || tenancy.status === "expired") ? (
             <Button asChild variant="outline">
-              <Link href={`/tenancies/${tenancy.id}/renew`}>
+              <a href="mailto:hello@casax.ng?subject=Tenancy%20renewal%20request">
                 <RefreshCw className="mr-2 size-4" />
-                Renew tenancy
-              </Link>
+                Request renewal
+              </a>
             </Button>
           ) : null}
           {isLandlord && tenancy.status === "active" ? (
             <Button
+              asChild
               className="border-orange-200 text-orange-700 hover:bg-orange-50"
-              disabled={terminatePending}
-              onClick={() => void onTerminate()}
               variant="outline"
             >
-              Terminate tenancy
+              <a href="mailto:hello@casax.ng?subject=Tenancy%20termination%20request">
+                Request termination
+              </a>
             </Button>
           ) : null}
           {record.agreementSummary ? (
@@ -398,11 +362,6 @@ function CurrentOccupantCard({
             </Button>
           ) : null}
         </div>
-        {error ? (
-          <p className="border-t border-slate-100 px-6 py-4 text-sm text-orange-700">
-            {error}
-          </p>
-        ) : null}
       </Card>
     </section>
   );
@@ -411,16 +370,12 @@ function CurrentOccupantCard({
 function VacantUnitActions({
   error,
   isLandlord,
-  isPending,
   isPublished,
-  onPublish,
   unitId,
 }: {
   error?: string;
   isLandlord: boolean;
-  isPending: boolean;
   isPublished: boolean;
-  onPublish: () => Promise<void>;
   unitId: string;
 }) {
   return (
@@ -428,20 +383,24 @@ function VacantUnitActions({
       <UserPlus className="size-6 text-emerald-700" />
       <h2 className="mt-4 font-semibold">Ready for occupancy</h2>
       <p className="mt-2 text-sm leading-6 text-slate-500">
-        Add a new or existing tenant to this unit, or make the vacancy visible
-        when it is ready for applicants.
+        Submit tenant details for CasaX review, or request vacancy publishing
+        when this unit is ready for applicants.
       </p>
       <div className="mt-5 flex flex-wrap gap-3">
         <Button asChild>
-          <Link href={`/units/${unitId}/add-tenant`}>Add tenant</Link>
+          {isLandlord ? (
+            <a href="mailto:hello@casax.ng?subject=Tenant%20onboarding%20request">
+              Request tenant onboarding
+            </a>
+          ) : (
+            <Link href={`/units/${unitId}/add-tenant`}>Submit tenant</Link>
+          )}
         </Button>
         {isLandlord && !isPublished ? (
-          <Button
-            disabled={isPending}
-            onClick={() => void onPublish()}
-            variant="outline"
-          >
-            Publish vacancy
+          <Button asChild variant="outline">
+            <a href="mailto:hello@casax.ng?subject=Vacancy%20publishing%20request">
+              Request vacancy publishing
+            </a>
           </Button>
         ) : null}
         {isPublished ? (

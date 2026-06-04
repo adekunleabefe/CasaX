@@ -14,11 +14,15 @@ export type UnitStatus =
 
 export type ApplicationStatus =
   | "pending"
+  | "submitted"
+  | "inspection_required"
+  | "inspection_scheduled"
   | "inspection_booked"
   | "under_review"
   | "approved"
   | "rejected"
-  | "converted_to_tenant";
+  | "converted_to_tenant"
+  | "converted_to_resident";
 
 export type TenancyStatus = "pending" | "active" | "expired" | "terminated";
 
@@ -39,6 +43,7 @@ export type AgreementStatus =
 
 export type PaymentStatus =
   | "pending"
+  | "processing"
   | "paid"
   | "overdue"
   | "failed"
@@ -50,6 +55,36 @@ export type PaymentMethod =
   | "pos"
   | "card"
   | "online_gateway";
+
+export type PaymentProvider = "paystack" | "flutterwave";
+
+export type PaymentPurpose = "rent" | "renewal";
+
+export type LandlordRemittanceStatus =
+  | "pending"
+  | "approved"
+  | "processing"
+  | "paid"
+  | "failed"
+  | "rejected";
+
+export type SubscriptionPlanType = "starter" | "growth" | "enterprise";
+
+export type BillingCycle = "monthly" | "annually" | "custom";
+
+export type SubscriptionStatus =
+  | "trialing"
+  | "active"
+  | "past_due"
+  | "cancelled"
+  | "expired";
+
+export type SubscriptionPaymentStatus =
+  | "pending"
+  | "processing"
+  | "paid"
+  | "failed"
+  | "cancelled";
 
 export type RemittanceStatus =
   | "pending"
@@ -142,10 +177,24 @@ export interface Property {
   state: string;
   type: string;
   status: PropertyStatus;
+  verificationStatus?: "pending" | "verified" | "rejected";
+  listingStatus?:
+    | "draft"
+    | "pending_review"
+    | "approved"
+    | "rejected"
+    | "suspended";
   createdAt: string;
   updatedAt: string;
   units?: Unit[];
   _count: { units: number };
+}
+
+export interface UnitMixInput {
+  unitType: string;
+  quantity: number;
+  annualRent: number;
+  unitNamingPrefix?: string;
 }
 
 export interface PropertyInput {
@@ -155,6 +204,7 @@ export interface PropertyInput {
   state: string;
   type: string;
   status: PropertyStatus;
+  unitMix?: UnitMixInput[];
 }
 
 export interface UnitInput {
@@ -181,6 +231,86 @@ export interface LandlordSummary {
   activeTenancies?: number;
   expiringSoonTenancies?: number;
   pendingConversions?: number;
+}
+
+export interface SubscriptionPlan {
+  id: string;
+  name: string;
+  type: SubscriptionPlanType;
+  description: string;
+  monthlyPrice: number | null;
+  annualPrice: number | null;
+  maxProperties: number | null;
+  maxUnits: number | null;
+  maxCaretakers: number | null;
+  includesVacancyListing: boolean;
+  isActive: boolean;
+  isCustom: boolean;
+}
+
+export interface LandlordSubscription {
+  id: string;
+  landlordId: string;
+  planId: string;
+  plan: SubscriptionPlan;
+  status: SubscriptionStatus;
+  billingCycle: BillingCycle;
+  trialStartedAt: string;
+  trialEndsAt: string;
+  currentPeriodStart?: string | null;
+  currentPeriodEnd?: string | null;
+  cancelledAt?: string | null;
+}
+
+export interface SubscriptionAccess {
+  canManage: boolean;
+  readOnly: boolean;
+  trialActive: boolean;
+  trialDaysRemaining: number;
+  graceActive: boolean;
+  graceDaysRemaining: number;
+}
+
+export interface SubscriptionMe {
+  subscription: LandlordSubscription;
+  access: SubscriptionAccess;
+}
+
+export interface SubscriptionUsage {
+  propertiesUsed: number;
+  unitsUsed: number;
+  caretakersUsed: number;
+  limits: {
+    maxProperties: number | null;
+    maxUnits: number | null;
+    maxCaretakers: number | null;
+    includesVacancyListing: boolean;
+  };
+  access: SubscriptionAccess;
+}
+
+export interface SubscriptionPayment {
+  id: string;
+  landlordId: string;
+  subscriptionId: string;
+  planId: string;
+  provider: PaymentProvider;
+  status: SubscriptionPaymentStatus;
+  billingCycle: BillingCycle;
+  amount: number;
+  currency: string;
+  reference: string;
+  providerReference?: string | null;
+  authorizationUrl?: string | null;
+  paidAt?: string | null;
+}
+
+export interface SubscriptionPaymentInitialization {
+  payment: SubscriptionPayment;
+  authorizationUrl?: string | null;
+  reference: string;
+  devMode: boolean;
+  note?: string;
 }
 
 export interface ProfileSummary {
@@ -251,6 +381,7 @@ export interface Application {
 export interface ApplicationInput {
   propertyId: string;
   unitId: string;
+  vacancyListingId?: string;
   assignedCaretakerId?: string;
   applicant: {
     email: string;
@@ -284,6 +415,18 @@ export interface ApplicationsSummary {
     caretaker: Caretaker;
     totalApplications: number;
   }[];
+}
+
+export interface CaretakerSummary {
+  assignedProperties: number;
+  assignedUnits: number;
+  activeTenancies: number;
+  pendingApplications: number;
+  pendingTenantSubmissions: number;
+  pendingPayments: number;
+  overduePayments: number;
+  totalCollected: number;
+  openMaintenanceRequests: number;
 }
 
 export type AvailableApplicationProperty = Pick<
@@ -440,6 +583,7 @@ export interface RentPayment {
   propertyId: string;
   unitId: string;
   payerId: string;
+  tenantId?: string | null;
   collectedByCaretakerId?: string | null;
   amount: number;
   dueDate: string;
@@ -447,8 +591,13 @@ export interface RentPayment {
   status: PaymentStatus;
   method: PaymentMethod;
   reference?: string | null;
+  transactionId?: string | null;
+  paymentReference?: string | null;
+  providerReference?: string | null;
+  authorizationUrl?: string | null;
   notes?: string | null;
   proofUrl?: string | null;
+  metadata?: Record<string, unknown> | null;
   createdAt: string;
   updatedAt: string;
   payer: OperationalUser;
@@ -456,9 +605,95 @@ export interface RentPayment {
   unit: Pick<Unit, "id" | "name" | "unitType" | "bedroomCount">;
   tenancy: Pick<
     Tenancy,
-    "id" | "startDate" | "endDate" | "status" | "paymentFrequency"
+    | "id"
+    | "startDate"
+    | "endDate"
+    | "rentAmount"
+    | "status"
+    | "paymentFrequency"
   >;
   collectedByCaretaker?: Caretaker | null;
+  receipts?: Receipt[];
+}
+
+export interface LeaseRenewalPayment {
+  id: string;
+  tenantId: string;
+  propertyId: string;
+  tenancyId: string;
+  amount: number;
+  renewalStartDate: string;
+  renewalEndDate: string;
+  status: PaymentStatus;
+  transactionId?: string | null;
+  createdAt: string;
+  updatedAt: string;
+  property?: Pick<Property, "id" | "name" | "address" | "city" | "state">;
+  tenancy?: Pick<
+    Tenancy,
+    "id" | "startDate" | "endDate" | "rentAmount" | "status" | "paymentFrequency"
+  >;
+  receipts?: Receipt[];
+}
+
+export interface Receipt {
+  id: string;
+  receiptNumber: string;
+  tenantId: string;
+  propertyId: string;
+  rentPaymentId?: string | null;
+  leaseRenewalPaymentId?: string | null;
+  transactionId?: string | null;
+  amount: number;
+  purpose: PaymentPurpose;
+  issuedAt: string;
+  pdfUrl?: string | null;
+  createdAt: string;
+  property?: Pick<Property, "id" | "name" | "address" | "city" | "state">;
+}
+
+export interface PaymentTransaction {
+  id: string;
+  reference: string;
+  paymentReference?: string | null;
+  providerReference?: string | null;
+  tenantId: string;
+  propertyId: string;
+  tenancyId: string;
+  purpose: PaymentPurpose;
+  provider: PaymentProvider;
+  amount: number;
+  currency: string;
+  authorizationUrl?: string | null;
+  status: PaymentStatus;
+  paidAt?: string | null;
+  createdAt: string;
+  updatedAt: string;
+}
+
+export interface TenantRentRenewalOverview {
+  rentPayments: RentPayment[];
+  renewalPayments: LeaseRenewalPayment[];
+  receipts: Receipt[];
+  outstandingBalance: number;
+  currentRent?: number | string | null;
+  rentDueDate?: string | null;
+  rentStatus?: PaymentStatus | null;
+  renewalDueDate?: string | null;
+  renewalStatus?: PaymentStatus | null;
+}
+
+export interface PaymentHistory {
+  transactions: PaymentTransaction[];
+  receipts: Receipt[];
+}
+
+export interface PaymentInitialization {
+  provider: PaymentProvider;
+  paymentReference: string;
+  authorizationUrl?: string | null;
+  devMode: boolean;
+  message?: string;
 }
 
 export interface RentPaymentInput {
@@ -506,6 +741,40 @@ export interface RemittanceRecord {
   property: Pick<Property, "id" | "name" | "address" | "city" | "state">;
   caretaker: Caretaker;
   payments: RemittanceAllocation[];
+}
+
+export interface LandlordRemittance {
+  id: string;
+  landlordId: string;
+  propertyId: string;
+  rentPaymentId?: string | null;
+  leaseRenewalPaymentId?: string | null;
+  grossAmount: number;
+  platformFee: number;
+  netAmount: number;
+  status: LandlordRemittanceStatus;
+  approvedById?: string | null;
+  paidAt?: string | null;
+  createdAt: string;
+  updatedAt: string;
+  property: Pick<Property, "id" | "name" | "address" | "city" | "state">;
+  rentPayment?: RentPayment | null;
+  leaseRenewalPayment?: LeaseRenewalPayment | null;
+}
+
+export interface LandlordRemittanceList {
+  items: LandlordRemittance[];
+}
+
+export interface AdminRemittanceSummary {
+  totalRentCollected: number;
+  pendingRemittances: number;
+  approvedRemittances: number;
+  processingRemittances: number;
+  completedRemittances: number;
+  failedRemittances: number;
+  paymentDisputes: number;
+  recentPayments: PaymentTransaction[];
 }
 
 export interface RemittanceInput {

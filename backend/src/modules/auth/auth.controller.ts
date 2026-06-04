@@ -38,7 +38,7 @@ export class AuthController {
 
   @Public()
   @Post('register')
-  @ApiOperation({ summary: 'Create a landlord or applicant account' })
+  @ApiOperation({ summary: 'Create a public applicant account' })
   async register(
     @Body() dto: RegisterDto,
     @Res({ passthrough: true }) response: Response,

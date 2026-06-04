@@ -1,5 +1,12 @@
 import { Injectable, NotFoundException } from '@nestjs/common';
-import { ApplicationStatus, TenancyStatus, UnitStatus } from '@prisma/client';
+import {
+  ApplicationStatus,
+  MaintenanceStatus,
+  PaymentStatus,
+  TenancyStatus,
+  TenantOnboardingStatus,
+  UnitStatus,
+} from '@prisma/client';
 import { AuthUser } from '../../common/types/auth-user.type';
 import { PrismaService } from '../../prisma/prisma.service';
 import { occupancyInclude } from '../occupancy/occupancy.service';
@@ -153,6 +160,112 @@ export class DashboardService {
           ? Math.round((occupiedUnits / totalUnits) * 100)
           : 0,
         recentActivity,
+      },
+    };
+  }
+
+  async caretakerSummary(user: AuthUser) {
+    const caretaker = await this.prisma.caretaker.findFirst({
+      where: { userId: user.id, deletedAt: null },
+      select: { id: true },
+    });
+    if (!caretaker) {
+      throw new NotFoundException('Caretaker profile not found');
+    }
+
+    const assignedPropertyWhere = {
+      deletedAt: null,
+      caretakerAssignments: {
+        some: { caretakerId: caretaker.id, endedAt: null },
+      },
+    };
+    const assignedUnitWhere = {
+      deletedAt: null,
+      property: assignedPropertyWhere,
+    };
+    const paymentWhere = {
+      deletedAt: null,
+      property: assignedPropertyWhere,
+    };
+
+    const [
+      assignedProperties,
+      assignedUnits,
+      activeTenancies,
+      pendingApplications,
+      pendingTenantSubmissions,
+      pendingPayments,
+      overduePayments,
+      totalCollected,
+      openMaintenanceRequests,
+    ] = await this.prisma.$transaction([
+      this.prisma.property.count({ where: assignedPropertyWhere }),
+      this.prisma.unit.count({ where: assignedUnitWhere }),
+      this.prisma.tenancy.count({
+        where: {
+          status: TenancyStatus.ACTIVE,
+          deletedAt: null,
+          property: assignedPropertyWhere,
+        },
+      }),
+      this.prisma.vacancyApplication.count({
+        where: {
+          deletedAt: null,
+          property: assignedPropertyWhere,
+          status: {
+            in: [ApplicationStatus.PENDING, ApplicationStatus.UNDER_REVIEW],
+          },
+        },
+      }),
+      this.prisma.tenantOnboardingRequest.count({
+        where: {
+          deletedAt: null,
+          submittedByCaretakerId: caretaker.id,
+          status: TenantOnboardingStatus.PENDING,
+        },
+      }),
+      this.prisma.rentPayment.count({
+        where: {
+          ...paymentWhere,
+          status: PaymentStatus.PENDING,
+        },
+      }),
+      this.prisma.rentPayment.count({
+        where: {
+          ...paymentWhere,
+          status: PaymentStatus.OVERDUE,
+        },
+      }),
+      this.prisma.rentPayment.aggregate({
+        where: {
+          ...paymentWhere,
+          status: PaymentStatus.PAID,
+        },
+        _sum: { amount: true },
+      }),
+      this.prisma.maintenanceRequest.count({
+        where: {
+          deletedAt: null,
+          property: assignedPropertyWhere,
+          status: {
+            in: [MaintenanceStatus.PENDING, MaintenanceStatus.IN_PROGRESS],
+          },
+        },
+      }),
+    ]);
+
+    return {
+      message: 'Caretaker summary retrieved successfully',
+      data: {
+        assignedProperties,
+        assignedUnits,
+        activeTenancies,
+        pendingApplications,
+        pendingTenantSubmissions,
+        pendingPayments,
+        overduePayments,
+        totalCollected: Number(totalCollected._sum.amount ?? 0),
+        openMaintenanceRequests,
       },
     };
   }

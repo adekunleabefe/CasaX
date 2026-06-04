@@ -14,6 +14,13 @@ import type {
 import { apiRequest } from "./api";
 
 type WirePropertyStatus = "ACTIVE" | "INACTIVE";
+type WirePropertyVerificationStatus = "PENDING" | "VERIFIED" | "REJECTED";
+type WirePropertyListingStatus =
+  | "DRAFT"
+  | "PENDING_REVIEW"
+  | "APPROVED"
+  | "REJECTED"
+  | "SUSPENDED";
 type WireUnitStatus =
   | "VACANT"
   | "OCCUPIED"
@@ -30,6 +37,7 @@ type WireAgreementStatus =
   | "CANCELLED";
 type WirePaymentStatus =
   | "PENDING"
+  | "PROCESSING"
   | "PAID"
   | "OVERDUE"
   | "FAILED"
@@ -67,8 +75,13 @@ type WireUnit = Omit<
       })
     | null;
 };
-type WireProperty = Omit<Property, "status" | "units"> & {
+type WireProperty = Omit<
+  Property,
+  "status" | "units" | "verificationStatus" | "listingStatus"
+> & {
   status: WirePropertyStatus;
+  verificationStatus?: WirePropertyVerificationStatus;
+  listingStatus?: WirePropertyListingStatus;
   units?: WireUnit[];
 };
 
@@ -76,6 +89,18 @@ const propertyStatus: Record<WirePropertyStatus, PropertyStatus> = {
   ACTIVE: "active",
   INACTIVE: "inactive",
 };
+const propertyVerificationStatus = {
+  PENDING: "pending",
+  VERIFIED: "verified",
+  REJECTED: "rejected",
+} as const;
+const propertyListingStatus = {
+  DRAFT: "draft",
+  PENDING_REVIEW: "pending_review",
+  APPROVED: "approved",
+  REJECTED: "rejected",
+  SUSPENDED: "suspended",
+} as const;
 const unitStatus: Record<WireUnitStatus, UnitStatus> = {
   VACANT: "vacant",
   OCCUPIED: "occupied",
@@ -104,6 +129,7 @@ const agreementStatus = {
 } as const;
 const paymentStatus = {
   PENDING: "pending",
+  PROCESSING: "processing",
   PAID: "paid",
   OVERDUE: "overdue",
   FAILED: "failed",
@@ -148,6 +174,12 @@ function normalizeProperty(property: WireProperty): Property {
   return {
     ...property,
     status: propertyStatus[property.status],
+    verificationStatus: property.verificationStatus
+      ? propertyVerificationStatus[property.verificationStatus]
+      : undefined,
+    listingStatus: property.listingStatus
+      ? propertyListingStatus[property.listingStatus]
+      : undefined,
     units: property.units?.map(normalizeUnit),
   };
 }

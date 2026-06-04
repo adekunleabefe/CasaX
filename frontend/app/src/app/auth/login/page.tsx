@@ -13,6 +13,8 @@ import { loginSchema } from "@/features/auth/schemas";
 import { login } from "@/services/auth";
 
 type LoginValues = z.infer<typeof loginSchema>;
+const WEB_AUTH_URL =
+  (process.env.NEXT_PUBLIC_WEB_URL ?? "http://localhost:3000") + "/auth/sign-up";
 
 export default function LoginPage() {
   return (
@@ -57,10 +59,11 @@ function LoginForm() {
     <Card className="border-slate-200 p-7 shadow-xl shadow-slate-200/40 sm:p-9">
       <p className="text-sm font-medium text-emerald-700">Welcome back</p>
       <h1 className="mt-3 text-3xl font-semibold tracking-tight">
-        Sign in to CasaX
+        Sign in to your CasaX operations portal
       </h1>
       <p className="mt-3 text-sm leading-6 text-slate-500">
-        Access your property operations workspace securely.
+        For landlords and onboarded residents managing portfolio visibility,
+        rent, lease, maintenance, support, and operational records.
       </p>
       <form
         className="mt-8 space-y-5"
@@ -125,9 +128,9 @@ function LoginForm() {
         </Button>
       </form>
       <p className="mt-7 text-center text-sm text-slate-500">
-        New to CasaX?{" "}
-        <Link className="font-medium text-emerald-700" href="/auth/register">
-          Create an account
+        Looking for rentals?{" "}
+        <Link className="font-medium text-emerald-700" href={WEB_AUTH_URL}>
+          Create an applicant account on CasaX.ng
         </Link>
       </p>
     </Card>

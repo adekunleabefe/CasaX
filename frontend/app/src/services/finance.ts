@@ -1,6 +1,16 @@
 import type {
   EligibleRentPayment,
+  LandlordRemittance,
+  LandlordRemittanceList,
+  LandlordRemittanceStatus,
+  LeaseRenewalPayment,
   PaymentMethod,
+  PaymentInitialization,
+  PaymentHistory,
+  PaymentProvider,
+  PaymentPurpose,
+  PaymentTransaction,
+  Receipt,
   PaymentStatus,
   PaymentSummary,
   RemittanceInput,
@@ -10,12 +20,19 @@ import type {
   RentPayment,
   RentPaymentInput,
   RentPaymentList,
+  TenantRentRenewalOverview,
   TenancyStatus,
   PaymentFrequency,
 } from "@casax/types";
 import { apiRequest } from "./api";
 
-type WirePaymentStatus = "PENDING" | "PAID" | "OVERDUE" | "FAILED" | "CANCELLED";
+type WirePaymentStatus =
+  | "PENDING"
+  | "PROCESSING"
+  | "PAID"
+  | "OVERDUE"
+  | "FAILED"
+  | "CANCELLED";
 type WirePaymentMethod =
   | "BANK_TRANSFER"
   | "CASH"
@@ -30,6 +47,15 @@ type WireRemittanceStatus =
   | "CANCELLED";
 type WireTenancyStatus = "PENDING" | "ACTIVE" | "EXPIRED" | "TERMINATED";
 type WireFrequency = "MONTHLY" | "QUARTERLY" | "BIANNUAL" | "YEARLY";
+type WireProvider = "PAYSTACK" | "FLUTTERWAVE";
+type WirePurpose = "RENT" | "RENEWAL";
+type WireLandlordRemittanceStatus =
+  | "PENDING"
+  | "APPROVED"
+  | "PROCESSING"
+  | "PAID"
+  | "FAILED"
+  | "REJECTED";
 
 type WirePayment = Omit<RentPayment, "amount" | "status" | "method" | "tenancy"> & {
   amount: string | number;
@@ -39,6 +65,42 @@ type WirePayment = Omit<RentPayment, "amount" | "status" | "method" | "tenancy">
     status: WireTenancyStatus;
     paymentFrequency: WireFrequency;
   };
+};
+type WireReceipt = Omit<Receipt, "amount" | "purpose"> & {
+  amount: string | number;
+  purpose: WirePurpose;
+};
+type WireRenewalPayment = Omit<LeaseRenewalPayment, "amount" | "status" | "tenancy" | "receipts"> & {
+  amount: string | number;
+  status: WirePaymentStatus;
+  tenancy?: LeaseRenewalPayment["tenancy"] extends infer T
+    ? Omit<NonNullable<T>, "status" | "paymentFrequency" | "rentAmount"> & {
+        rentAmount: string | number;
+        status: WireTenancyStatus;
+        paymentFrequency: WireFrequency;
+      }
+    : never;
+  receipts?: WireReceipt[];
+};
+type WireTransaction = Omit<
+  PaymentTransaction,
+  "amount" | "status" | "provider" | "purpose"
+> & {
+  amount: string | number;
+  status: WirePaymentStatus;
+  provider: WireProvider;
+  purpose: WirePurpose;
+};
+type WireLandlordRemittance = Omit<
+  LandlordRemittance,
+  "grossAmount" | "platformFee" | "netAmount" | "status" | "rentPayment" | "leaseRenewalPayment"
+> & {
+  grossAmount: string | number;
+  platformFee: string | number;
+  netAmount: string | number;
+  status: WireLandlordRemittanceStatus;
+  rentPayment?: WirePayment | null;
+  leaseRenewalPayment?: WireRenewalPayment | null;
 };
 type WireRemittance = Omit<RemittanceRecord, "amount" | "status" | "method" | "payments"> & {
   amount: string | number;
@@ -54,6 +116,7 @@ type WireEligible = WirePayment & { unremittedAmount: string | number };
 
 const paymentStatuses: Record<WirePaymentStatus, PaymentStatus> = {
   PENDING: "pending",
+  PROCESSING: "processing",
   PAID: "paid",
   OVERDUE: "overdue",
   FAILED: "failed",
@@ -85,6 +148,25 @@ const frequencies: Record<WireFrequency, PaymentFrequency> = {
   BIANNUAL: "biannual",
   YEARLY: "yearly",
 };
+const providers: Record<WireProvider, PaymentProvider> = {
+  PAYSTACK: "paystack",
+  FLUTTERWAVE: "flutterwave",
+};
+const purposes: Record<WirePurpose, PaymentPurpose> = {
+  RENT: "rent",
+  RENEWAL: "renewal",
+};
+const landlordRemittanceStatuses: Record<
+  WireLandlordRemittanceStatus,
+  LandlordRemittanceStatus
+> = {
+  PENDING: "pending",
+  APPROVED: "approved",
+  PROCESSING: "processing",
+  PAID: "paid",
+  FAILED: "failed",
+  REJECTED: "rejected",
+};
 
 function normalizePayment(payment: WirePayment): RentPayment {
   return {
@@ -97,6 +179,59 @@ function normalizePayment(payment: WirePayment): RentPayment {
       status: tenancyStatuses[payment.tenancy.status],
       paymentFrequency: frequencies[payment.tenancy.paymentFrequency],
     },
+  };
+}
+
+function normalizeReceipt(receipt: WireReceipt): Receipt {
+  return {
+    ...receipt,
+    amount: Number(receipt.amount),
+    purpose: purposes[receipt.purpose],
+  };
+}
+
+function normalizeRenewal(payment: WireRenewalPayment): LeaseRenewalPayment {
+  return {
+    ...payment,
+    amount: Number(payment.amount),
+    status: paymentStatuses[payment.status],
+    tenancy: payment.tenancy
+      ? {
+          ...payment.tenancy,
+          rentAmount: Number(payment.tenancy.rentAmount),
+          status: tenancyStatuses[payment.tenancy.status],
+          paymentFrequency: frequencies[payment.tenancy.paymentFrequency],
+        }
+      : undefined,
+    receipts: payment.receipts?.map(normalizeReceipt),
+  };
+}
+
+function normalizeTransaction(transaction: WireTransaction): PaymentTransaction {
+  return {
+    ...transaction,
+    amount: Number(transaction.amount),
+    status: paymentStatuses[transaction.status],
+    provider: providers[transaction.provider],
+    purpose: purposes[transaction.purpose],
+  };
+}
+
+function normalizeLandlordRemittance(
+  remittance: WireLandlordRemittance,
+): LandlordRemittance {
+  return {
+    ...remittance,
+    grossAmount: Number(remittance.grossAmount),
+    platformFee: Number(remittance.platformFee),
+    netAmount: Number(remittance.netAmount),
+    status: landlordRemittanceStatuses[remittance.status],
+    rentPayment: remittance.rentPayment
+      ? normalizePayment(remittance.rentPayment)
+      : null,
+    leaseRenewalPayment: remittance.leaseRenewalPayment
+      ? normalizeRenewal(remittance.leaseRenewalPayment)
+      : null,
   };
 }
 
@@ -135,8 +270,64 @@ export async function getPayments(filters: PaymentFilters = {}): Promise<RentPay
   return { ...result, items: result.items.map(normalizePayment) };
 }
 
+export async function getMyRentPayments(): Promise<RentPayment[]> {
+  const result = await apiRequest<WirePayment[]>("/payments/my-rent");
+  return result.map(normalizePayment);
+}
+
+export async function getMyRentRenewal(): Promise<TenantRentRenewalOverview> {
+  const result = await apiRequest<
+    Omit<
+      TenantRentRenewalOverview,
+      "rentPayments" | "renewalPayments" | "receipts" | "currentRent"
+    > & {
+      rentPayments: WirePayment[];
+      renewalPayments: WireRenewalPayment[];
+      receipts: WireReceipt[];
+      currentRent?: string | number | null;
+    }
+  >("/payments/my-rent-renewal");
+
+  return {
+    ...result,
+    currentRent:
+      result.currentRent === null || result.currentRent === undefined
+        ? result.currentRent
+        : Number(result.currentRent),
+    rentPayments: result.rentPayments.map(normalizePayment),
+    renewalPayments: result.renewalPayments.map(normalizeRenewal),
+    receipts: result.receipts.map(normalizeReceipt),
+  };
+}
+
+export async function getPaymentHistory(): Promise<PaymentHistory> {
+  const result = await apiRequest<{
+    transactions: WireTransaction[];
+    receipts: WireReceipt[];
+  }>("/payments/history");
+  return {
+    transactions: result.transactions.map(normalizeTransaction),
+    receipts: result.receipts.map(normalizeReceipt),
+  };
+}
+
 export async function getPayment(id: string) {
   return normalizePayment(await apiRequest<WirePayment>(`/payments/${id}`));
+}
+
+export async function initializePayment(
+  id: string,
+): Promise<PaymentInitialization> {
+  const result = await apiRequest<
+    Omit<PaymentInitialization, "provider"> & {
+      provider: "PAYSTACK" | "FLUTTERWAVE";
+    }
+  >(`/payments/${id}/initialize`, { method: "POST" });
+
+  return {
+    ...result,
+    provider: result.provider === "PAYSTACK" ? "paystack" : "flutterwave",
+  };
 }
 
 export async function createPayment(input: RentPaymentInput) {
@@ -171,6 +362,23 @@ export async function getRemittances(): Promise<RemittanceList> {
     "/remittances?page=1&limit=30",
   );
   return { ...result, items: result.items.map(normalizeRemittance) };
+}
+
+export async function getLandlordRemittances(): Promise<LandlordRemittanceList> {
+  const result = await apiRequest<{ items: WireLandlordRemittance[] }>(
+    "/payments/landlord-remittances",
+  );
+  return { items: result.items.map(normalizeLandlordRemittance) };
+}
+
+export async function getLandlordRemittance(
+  id: string,
+): Promise<LandlordRemittance> {
+  return normalizeLandlordRemittance(
+    await apiRequest<WireLandlordRemittance>(
+      `/payments/landlord-remittances/${id}`,
+    ),
+  );
 }
 
 export async function getRemittance(id: string) {

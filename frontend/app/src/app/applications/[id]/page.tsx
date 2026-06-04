@@ -1,10 +1,8 @@
 "use client";
 
-import { useState } from "react";
-import { useParams, useRouter } from "next/navigation";
+import { useParams } from "next/navigation";
 import {
   CalendarClock,
-  CheckCircle2,
   ClipboardCheck,
   Home,
   Mail,
@@ -14,27 +12,19 @@ import { Button, Card } from "@casax/ui";
 import { formatCurrency } from "@casax/utils";
 import { PageHeader } from "@/components/operations/page-header";
 import { ErrorState, LoadingCards } from "@/components/operations/query-states";
-import { RejectionForm } from "@/components/operations/rejection-form";
 import { StatusBadge } from "@/components/operations/status-badge";
-import { TenancyConversionForm } from "@/components/operations/tenancy-conversion-form";
 import { ApplicationUpdateForm } from "@/components/operations/application-update-form";
 import { useCurrentUser } from "@/features/auth/queries";
 import {
   useApplication,
-  useApplicationDecision,
   useUpdateApplication,
 } from "@/features/operations/queries";
-import { useConvertApplication } from "@/features/tenancies/queries";
 
 export default function ApplicationDetailsPage() {
   const { id } = useParams<{ id: string }>();
-  const router = useRouter();
-  const [showConversion, setShowConversion] = useState(false);
   const application = useApplication(id);
   const currentUser = useCurrentUser();
-  const decision = useApplicationDecision(id, application.data?.propertyId);
   const update = useUpdateApplication(id);
-  const conversion = useConvertApplication(id, application.data?.propertyId);
 
   if (application.isLoading) {
     return (
@@ -58,12 +48,10 @@ export default function ApplicationDetailsPage() {
   const applicantProfile = record.applicant.user.profile;
   const caretakerProfile = record.assignedCaretaker?.user.profile;
   const isLandlord = currentUser.data?.role === "landlord";
-  const isStaff = isLandlord || currentUser.data?.role === "caretaker";
+  const isStaff = currentUser.data?.role === "caretaker";
   const isFinalized = ["approved", "rejected", "converted_to_tenant"].includes(
     record.status,
   );
-  const canDecide = isLandlord && !isFinalized;
-  const canConvert = isLandlord && record.status === "approved";
 
   return (
     <main className="p-5 lg:p-8">
@@ -89,11 +77,11 @@ export default function ApplicationDetailsPage() {
               />
               <Info
                 icon={UserRound}
-                label="Submitted through"
+                label="Source"
                 value={
                   caretakerProfile
-                    ? `${caretakerProfile.firstName} ${caretakerProfile.lastName}`
-                    : "Direct landlord workflow"
+                    ? "CasaX field submission"
+                    : "CasaX review workflow"
                 }
               />
               <Info
@@ -144,10 +132,10 @@ export default function ApplicationDetailsPage() {
         <div className="space-y-5">
           {isStaff && !isFinalized ? (
             <Card>
-              <h2 className="font-semibold">Operational workflow</h2>
+              <h2 className="font-semibold">Review workflow</h2>
               <p className="mt-2 text-sm leading-6 text-slate-500">
                 Keep inspection and review progress current before the final
-                landlord decision.
+                decision is recorded.
               </p>
               <ApplicationUpdateForm
                 application={record}
@@ -162,98 +150,25 @@ export default function ApplicationDetailsPage() {
           {isLandlord ? (
             <Card className="bg-slate-950 text-white">
               <ClipboardCheck className="size-6 text-emerald-400" />
-              <h2 className="mt-5 text-lg font-semibold">Landlord decision</h2>
-              <p className="mt-2 text-sm leading-6 text-slate-300">
-                Approval holds this unit for the future tenancy creation step.
-                Rejection returns it to vacant inventory.
-              </p>
-              {canDecide ? (
-                <>
-                  <Button
-                    className="mt-6 w-full bg-emerald-600 hover:bg-emerald-700"
-                    disabled={decision.approve.isPending}
-                    onClick={() => decision.approve.mutate()}
-                  >
-                    <CheckCircle2 className="mr-2 size-4" />
-                    {decision.approve.isPending
-                      ? "Approving..."
-                      : "Approve application"}
-                  </Button>
-                  <RejectionForm
-                    isPending={decision.reject.isPending}
-                    onReject={(reason) =>
-                      decision.reject.mutateAsync(reason).then(() => undefined)
-                    }
-                  />
-                </>
-              ) : (
-                <div className="mt-6 rounded-xl bg-white/10 p-4 text-sm text-slate-200">
-                  This application decision has been recorded.
-                </div>
-              )}
-              {decision.approve.error || decision.reject.error ? (
-                <p className="mt-4 text-sm text-orange-300">
-                  {(decision.approve.error ?? decision.reject.error)?.message}
-                </p>
-              ) : null}
-            </Card>
-          ) : null}
-          {canConvert ? (
-            <Card>
-              <p className="text-sm font-medium text-emerald-700">
-                Approved applicant
-              </p>
-              <h2 className="mt-2 text-lg font-semibold">
-                Ready for occupancy
+              <h2 className="mt-5 text-lg font-semibold">
+                CasaX review status
               </h2>
-              <p className="mt-2 text-sm leading-6 text-slate-500">
-                Create the tenancy and official occupant record once unit
-                assignment and lease terms are confirmed.
+              <p className="mt-2 text-sm leading-6 text-slate-300">
+                CasaX coordinates applicant review, inspection progress, and
+                resident onboarding. Landlords can monitor the status here.
               </p>
-              <Button
-                className="mt-6 w-full"
-                onClick={() => setShowConversion(true)}
-              >
-                Convert to tenancy
+              <div className="mt-6 rounded-xl bg-white/10 p-4 text-sm text-slate-200">
+                Current status: {record.status.replaceAll("_", " ")}.
+              </div>
+              <Button asChild className="mt-4 w-full" variant="outline">
+                <a href="mailto:hello@casax.ng?subject=Application%20status%20update">
+                  Request update from CasaX
+                </a>
               </Button>
             </Card>
           ) : null}
         </div>
       </div>
-      {showConversion ? (
-        <div
-          aria-modal="true"
-          className="fixed inset-0 z-50 flex items-end justify-center bg-slate-950/50 p-4 sm:items-center"
-          role="dialog"
-        >
-          <Card className="w-full max-w-2xl shadow-2xl">
-            <h2 className="text-xl font-semibold">Convert to tenancy</h2>
-            <p className="mt-2 text-sm text-slate-500">
-              Confirm lease terms to create occupancy for {record.unit.name}.
-            </p>
-            <div className="mt-6">
-              <TenancyConversionForm
-                error={conversion.error?.message}
-                isPending={conversion.isPending}
-                onCancel={() => setShowConversion(false)}
-                onSubmit={async (values) => {
-                  const tenancy = await conversion.mutateAsync(values);
-                  const notice =
-                    tenancy.invitationOutcome === "sent"
-                      ? "?onboarding=invitation-sent"
-                      : tenancy.invitationOutcome === "email_missing"
-                        ? "?onboarding=email-missing"
-                        : tenancy.invitationOutcome === "delivery_failed"
-                          ? "?onboarding=delivery-failed"
-                        : "";
-                  router.push(`/tenancies/${tenancy.id}${notice}`);
-                }}
-                rentAmount={record.unit.rentAmount}
-              />
-            </div>
-          </Card>
-        </div>
-      ) : null}
     </main>
   );
 }

@@ -14,6 +14,7 @@ import {
   getApplications,
   getAvailableApplicationUnits,
   getApplicationsSummary,
+  getCaretakerSummary,
   getCaretakerAssignments,
   getPropertyCaretakers,
   rejectApplication,
@@ -31,6 +32,7 @@ export const operationsKeys = {
     ["applications", "list", status] as const,
   application: (id: string) => ["applications", "detail", id] as const,
   summary: ["dashboard", "applications-summary"] as const,
+  caretakerSummary: ["dashboard", "caretaker-summary"] as const,
   availableUnits: ["applications", "available-units"] as const,
 };
 
@@ -173,5 +175,12 @@ export function useApplicationsSummary() {
   return useQuery({
     queryKey: operationsKeys.summary,
     queryFn: getApplicationsSummary,
+  });
+}
+
+export function useCaretakerSummary() {
+  return useQuery({
+    queryKey: operationsKeys.caretakerSummary,
+    queryFn: getCaretakerSummary,
   });
 }

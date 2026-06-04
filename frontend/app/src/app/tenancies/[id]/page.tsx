@@ -16,7 +16,6 @@ import Link from "next/link";
 import { Button, Card } from "@casax/ui";
 import { formatCurrency } from "@casax/utils";
 import { PageHeader } from "@/components/operations/page-header";
-import { TenancyUpdateForm } from "@/components/operations/tenancy-update-form";
 import { ErrorState, LoadingCards } from "@/components/operations/query-states";
 import { StatusBadge } from "@/components/operations/status-badge";
 import {
@@ -24,10 +23,8 @@ import {
   useCreateTenancyAgreement,
   useMarkAgreementSigned,
   useSendTenancyAgreement,
-  useTerminateTenancy,
   useTenancyAgreement,
   useUpdateTenancyAgreement,
-  useUpdateTenancy,
 } from "@/features/tenancies/queries";
 import { useTenancyPayments } from "@/features/finance/queries";
 import { useCurrentUser } from "@/features/auth/queries";
@@ -36,12 +33,6 @@ export default function TenancyDetailPage() {
   const { id } = useParams<{ id: string }>();
   const onboardingNotice = useSearchParams().get("onboarding");
   const tenancy = useTenancy(id);
-  const terminate = useTerminateTenancy(
-    id,
-    tenancy.data?.unitId,
-    tenancy.data?.propertyId,
-  );
-  const update = useUpdateTenancy(id);
   const payments = useTenancyPayments(id);
   const currentUser = useCurrentUser();
   const agreement = useTenancyAgreement(id);
@@ -49,7 +40,6 @@ export default function TenancyDetailPage() {
   const updateAgreement = useUpdateTenancyAgreement(id, agreement.data?.id);
   const sendAgreement = useSendTenancyAgreement(id, agreement.data?.id);
   const markSigned = useMarkAgreementSigned(id, agreement.data?.id);
-  const [editing, setEditing] = useState(false);
   const [editingAgreement, setEditingAgreement] = useState(false);
   const [agreementTitle, setAgreementTitle] = useState("");
   const [agreementContent, setAgreementContent] = useState("");
@@ -295,40 +285,33 @@ export default function TenancyDetailPage() {
         </Card>
         <Card>
           <UserRound className="size-6 text-emerald-600" />
-          <h2 className="mt-4 font-semibold">Occupancy control</h2>
+          <h2 className="mt-4 font-semibold">Tenancy oversight</h2>
           <p className="mt-2 text-sm leading-6 text-slate-500">
-            Ending this tenancy closes the active occupancy record and returns
-            the unit to vacant inventory.
+            Monitor this tenancy, agreement state, and the unit lifecycle from
+            one record.
           </p>
           {canRenew ? (
-            <Button asChild className="mt-6 w-full">
-              <Link href={`/tenancies/${record.id}/renew`}>
+            <Button asChild className="mt-6 w-full" variant="outline">
+              <a href="mailto:hello@casax.ng?subject=Tenancy%20renewal%20request">
                 <RefreshCw className="mr-2 size-4" />
-                Renew tenancy
-              </Link>
+                Request renewal
+              </a>
             </Button>
           ) : null}
           {isLandlord && active ? (
             <>
-              <Button
-                className="mt-3 w-full"
-                onClick={() => setEditing((visible) => !visible)}
-                variant="outline"
-              >
-                {editing ? "Close editing" : "Edit tenancy"}
+              <Button asChild className="mt-3 w-full" variant="outline">
+                <a href="mailto:hello@casax.ng?subject=Tenancy%20update%20request">
+                  Request tenancy update
+                </a>
               </Button>
-              <Button
+              <Button asChild
                 className="mt-3 w-full border-orange-200 text-orange-700 hover:bg-orange-50"
-                disabled={terminate.isPending}
-                onClick={() => {
-                  const reason =
-                    window.prompt("Reason for termination (optional)") ??
-                    undefined;
-                  void terminate.mutateAsync(reason);
-                }}
                 variant="outline"
               >
-                {terminate.isPending ? "Terminating..." : "Terminate tenancy"}
+                <a href="mailto:hello@casax.ng?subject=Tenancy%20termination%20request">
+                  Request termination
+                </a>
               </Button>
             </>
           ) : !active ? (
@@ -336,40 +319,16 @@ export default function TenancyDetailPage() {
               This tenancy is closed.
             </p>
           ) : null}
-          {terminate.error ? (
-            <p className="mt-4 text-sm text-orange-700">
-              {terminate.error.message}
-            </p>
-          ) : null}
           <Button asChild className="mt-3 w-full" variant="outline">
             <Link href="#agreement">View agreement</Link>
           </Button>
           {canRecordPayment && agreement.data ? (
             <Button asChild className="mt-3 w-full" variant="outline">
-              <Link href={`/payments/new?tenancyId=${record.id}`}>
-                Record payment
-              </Link>
+              <Link href="/payments">View rent records</Link>
             </Button>
           ) : null}
         </Card>
       </div>
-      {editing && isLandlord && active ? (
-        <Card className="mt-6">
-          <h2 className="font-semibold">Edit lease terms</h2>
-          <p className="mt-2 text-sm text-slate-500">
-            Update active tenancy terms while retaining its occupancy history.
-          </p>
-          <TenancyUpdateForm
-            error={update.error?.message}
-            isPending={update.isPending}
-            onCancel={() => setEditing(false)}
-            onSubmit={(input) =>
-              update.mutateAsync(input).then(() => undefined)
-            }
-            tenancy={record}
-          />
-        </Card>
-      ) : null}
       <Card className="mt-6 scroll-mt-6" id="agreement">
         <div className="flex flex-col justify-between gap-4 sm:flex-row sm:items-start">
           <div>
@@ -522,20 +481,18 @@ export default function TenancyDetailPage() {
               Payment history
             </p>
             <h2 className="mt-2 text-lg font-semibold">
-              Rent received for this tenancy
+              Rent visibility for this tenancy
             </h2>
           </div>
           {canRecordPayment && agreement.data ? (
             <Button asChild>
-              <Link href={`/payments/new?tenancyId=${record.id}`}>
-                Record payment
-              </Link>
+              <Link href="/payments">View rent records</Link>
             </Button>
           ) : null}
         </div>
         {canRecordPayment && !agreement.isLoading && !agreement.data ? (
           <p className="mt-5 rounded-xl bg-orange-50 px-4 py-3 text-sm text-orange-700">
-            Create an agreement draft before recording payments.
+            Create an agreement draft before rent records are enabled.
           </p>
         ) : null}
         {payments.isLoading ? (
@@ -566,8 +523,8 @@ export default function TenancyDetailPage() {
                   <p className="mt-1 text-xs text-slate-500">
                     Due {new Date(payment.dueDate).toLocaleDateString()} /{" "}
                     {payment.collectedByCaretaker
-                      ? "Caretaker collected"
-                      : "Direct receipt"}
+                      ? "CasaX field collection"
+                      : "CasaX rent receipt"}
                   </p>
                 </div>
                 <StatusBadge status={payment.status} />

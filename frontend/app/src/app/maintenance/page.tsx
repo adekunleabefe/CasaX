@@ -1,6 +1,5 @@
 "use client";
 
-import Link from "next/link";
 import { Camera, CheckCircle2, Clock3, LifeBuoy, MessageSquare, Wrench } from "lucide-react";
 import { Button, Card } from "@casax/ui";
 import { useCurrentUser } from "@/features/auth/queries";
@@ -29,14 +28,21 @@ export default function MaintenancePage() {
           {isTenant ? "Resident support" : "Maintenance"}
         </p>
         <h1 className="mt-3 text-3xl font-semibold tracking-tight text-slate-950">
-          {isTenant ? "Get help with your home" : "Resident maintenance queue"}
+          {isTenant ? "Get help with your home" : "Maintenance"}
         </h1>
         <p className="mt-3 max-w-2xl text-sm leading-6 text-slate-500">
           {isTenant
             ? "Maintenance requests and resident messages will live here in a simple, trackable flow."
-            : "Track resident requests for assigned or owned units without mixing them into portfolio administration."}
+            : "Monitor tenant issues and CasaX coordination status across your managed properties."}
         </p>
       </header>
+
+      <section className="mt-6 grid gap-4 sm:grid-cols-2 xl:grid-cols-4">
+        <MaintenanceMetric label="Open Requests" value="0" />
+        <MaintenanceMetric label="In Progress" value="0" />
+        <MaintenanceMetric label="Resolved" value="0" />
+        <MaintenanceMetric label="Average Resolution Time" value="--" />
+      </section>
 
       <section className="mt-6 grid gap-4 md:grid-cols-3">
         <Card className="md:col-span-2">
@@ -44,15 +50,24 @@ export default function MaintenancePage() {
             <Wrench className="size-5" />
           </div>
           <h2 className="mt-5 text-lg font-semibold text-slate-950">
-            Maintenance requests are coming soon
+            No active maintenance issues
           </h2>
           <p className="mt-2 text-sm leading-6 text-slate-500">
-            CasaX is ready for a resident-first maintenance flow: submit an
-            issue, follow updates, and keep communication attached to the home.
+            Tenant issues, unit context, and CasaX coordination status will
+            appear here when maintenance requests are opened.
           </p>
-          <Button asChild className="mt-6">
-            <Link href="/dashboard">Return to dashboard</Link>
-          </Button>
+          <div className="mt-6 grid gap-3 sm:grid-cols-2">
+            {["Issue", "Property / unit", "Status", "CasaX coordination"].map(
+              (label) => (
+                <div className="rounded-2xl bg-slate-50 p-4" key={label}>
+                  <p className="text-xs font-medium text-slate-500">{label}</p>
+                  <p className="mt-2 text-sm font-semibold text-slate-950">
+                    Awaiting request
+                  </p>
+                </div>
+              ),
+            )}
+          </div>
         </Card>
 
         <Card className="bg-slate-950 text-white">
@@ -66,6 +81,15 @@ export default function MaintenancePage() {
       </section>
 
     </main>
+  );
+}
+
+function MaintenanceMetric({ label, value }: { label: string; value: string }) {
+  return (
+    <Card>
+      <p className="text-sm text-slate-500">{label}</p>
+      <p className="mt-3 text-2xl font-semibold text-slate-950">{value}</p>
+    </Card>
   );
 }
 

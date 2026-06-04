@@ -2,6 +2,7 @@
 
 import Link from "next/link";
 import type { ElementType } from "react";
+import type { SubscriptionMe, SubscriptionUsage } from "@casax/types";
 import {
   ArrowRight,
   Building2,
@@ -10,7 +11,6 @@ import {
   CreditCard,
   DoorOpen,
   FileText,
-  HousePlus,
   LifeBuoy,
   ReceiptText,
   ShieldCheck,
@@ -24,17 +24,19 @@ import {
   usePaymentSummary,
   useTenancyPayments,
 } from "@/features/finance/queries";
-import { useApplicationsSummary } from "@/features/operations/queries";
-import { useTenantOnboardingRequests } from "@/features/onboarding/queries";
+import { useCaretakerSummary } from "@/features/operations/queries";
 import { useLandlordSummary } from "@/features/properties/queries";
 import {
   useOccupancySummary,
   useTenancies,
   useTenancyAgreement,
 } from "@/features/tenancies/queries";
+import {
+  useMySubscription,
+  useSubscriptionUsage,
+} from "@/features/subscriptions/queries";
 import { useCurrentUser } from "@/features/auth/queries";
 import { StatusBadge } from "@/components/operations/status-badge";
-import { rentAmountLabel } from "@/lib/rent-label";
 
 type ActivityItem = {
   id: string;
@@ -47,14 +49,14 @@ type ActivityItem = {
 };
 
 const quickActions = [
-  { label: "Add property", href: "/properties/new", icon: Building2 },
-  { label: "Add unit", href: "/properties", icon: HousePlus },
+  { label: "Track portfolio", href: "/properties", icon: Building2 },
+  { label: "Request update", href: "/support", icon: DoorOpen },
   {
-    label: "Create application",
-    href: "/applications/new",
+    label: "Track vacancies",
+    href: "/applications",
     icon: ClipboardPlus,
   },
-  { label: "Record payment", href: "/payments/new", icon: CreditCard },
+  { label: "Review rent & payouts", href: "/payments", icon: CreditCard },
 ];
 
 export default function DashboardPage() {
@@ -75,14 +77,79 @@ export default function DashboardPage() {
   if (currentUser.data?.role === "caretaker") {
     return <CaretakerDashboard />;
   }
-
   return <LandlordDashboard />;
+}
+
+function SubscriptionBanner({
+  subscription,
+  usage,
+}: {
+  subscription: SubscriptionMe;
+  usage?: SubscriptionUsage;
+}) {
+  const plan = subscription.subscription.plan;
+  const access = subscription.access;
+  const limitLabel = (used?: number, limit?: number | null) =>
+    limit === null || limit === undefined
+      ? `${used ?? 0} / unlimited`
+      : `${used ?? 0} / ${limit}`;
+
+  return (
+    <Card
+      className={`mt-8 border p-5 shadow-sm ${
+        access.readOnly
+          ? "border-orange-200 bg-orange-50/70"
+          : "border-emerald-100 bg-emerald-50/50"
+      }`}
+    >
+      <div className="flex flex-col justify-between gap-5 lg:flex-row lg:items-center">
+        <div>
+          <p className="text-xs font-semibold uppercase tracking-[0.16em] text-slate-500">
+            Management package
+          </p>
+          <h2 className="mt-2 text-xl font-semibold text-slate-950">
+            {plan.name} package{" "}
+            {access.trialActive
+              ? `- ${access.trialDaysRemaining} trial days remaining`
+              : `- ${subscription.subscription.status.replace("_", " ")}`}
+          </h2>
+          <p className="mt-2 max-w-2xl text-sm leading-6 text-slate-600">
+            {access.readOnly
+              ? "Your workspace is currently read-only. Renew your package to continue managed property operations."
+              : "Your landlord workspace is active. CasaX reviews portfolio limits before new records enter operations."}
+          </p>
+        </div>
+        <Button asChild className="w-full shrink-0 sm:w-auto">
+          <Link href="/subscription">
+            Review package <ArrowRight className="ml-2 size-4" />
+          </Link>
+        </Button>
+      </div>
+      <div className="mt-5 grid gap-3 sm:grid-cols-2 xl:grid-cols-4">
+        <UsagePill
+          label="Properties"
+          value={limitLabel(
+            usage?.propertiesUsed,
+            usage?.limits.maxProperties,
+          )}
+        />
+        <UsagePill
+          label="Units"
+          value={limitLabel(usage?.unitsUsed, usage?.limits.maxUnits)}
+        />
+        <UsagePill
+          label="Vacancy listing"
+          value={usage?.limits.includesVacancyListing ? "Included" : "Limited"}
+        />
+      </div>
+    </Card>
+  );
 }
 
 function LandlordDashboard() {
   const summary = useLandlordSummary();
-  const applications = useApplicationsSummary();
-  const onboarding = useTenantOnboardingRequests();
+  const subscription = useMySubscription();
+  const usage = useSubscriptionUsage();
   const occupancy = useOccupancySummary();
   const finance = usePaymentSummary();
 
@@ -91,9 +158,6 @@ function LandlordDashboard() {
     finance.data?.recentRemittances ?? [],
     occupancy.data?.recentActivity ?? [],
   );
-  const pendingOnboarding =
-    onboarding.data?.filter((request) => request.status === "pending").length;
-
   return (
     <main className="mx-auto max-w-7xl p-5 lg:p-8">
       <header className="flex flex-col justify-between gap-5 sm:flex-row sm:items-end">
@@ -102,16 +166,24 @@ function LandlordDashboard() {
             Portfolio overview
           </p>
           <h1 className="mt-2 text-3xl font-semibold tracking-tight text-slate-950">
-            Property operations
+            Property oversight
           </h1>
           <p className="mt-2 text-sm text-slate-500">
-            A real-time view of owned properties and unit readiness.
+            Monitor CasaX-managed properties, unit readiness, rent collection,
+            and remittance visibility.
           </p>
         </div>
-        <Button asChild className="w-full sm:w-auto">
-          <Link href="/properties/new">Add property</Link>
+        <Button asChild className="w-full sm:w-auto" variant="outline">
+          <Link href="/support">Contact CasaX</Link>
         </Button>
       </header>
+
+      {subscription.data ? (
+        <SubscriptionBanner
+          subscription={subscription.data}
+          usage={usage.data}
+        />
+      ) : null}
 
       {summary.data?.totalProperties === 0 ? (
         <Card className="mt-8 flex flex-col justify-between gap-5 border-emerald-100 bg-emerald-50/40 sm:flex-row sm:items-center">
@@ -120,11 +192,12 @@ function LandlordDashboard() {
               Your portfolio is ready to begin
             </h2>
             <p className="mt-1 text-sm text-slate-600">
-              Add your first property to start tracking units and occupancy.
+              Contact CasaX so Operations can assess, create, and prepare your
+              first portfolio record.
             </p>
           </div>
-          <Button asChild className="shrink-0">
-            <Link href="/properties/new">Create property</Link>
+          <Button asChild className="shrink-0" variant="outline">
+            <Link href="/support">Contact CasaX</Link>
           </Button>
         </Card>
       ) : null}
@@ -133,32 +206,39 @@ function LandlordDashboard() {
         <div className="flex items-center justify-between gap-4">
           <div>
             <h2 className="text-lg font-semibold text-slate-950">
-              Operations at a glance
+              Portfolio signals
             </h2>
             <p className="mt-1 text-sm text-slate-500">
-              The signals requiring your attention today.
+              The managed-operations signals worth monitoring today.
             </p>
           </div>
         </div>
         <div className="mt-5 grid gap-4 sm:grid-cols-2 xl:grid-cols-4">
           <PrimaryMetric
             icon={DoorOpen}
-            label="Vacant units"
+            label="Occupancy rate"
             loading={summary.isLoading}
-            value={summary.data?.vacantUnits}
+            value={
+              summary.data?.totalUnits
+                ? `${Math.round(
+                    (summary.data.occupiedUnits / summary.data.totalUnits) *
+                      100,
+                  )}%`
+                : "0%"
+            }
           />
           <PrimaryMetric
-            icon={UserPlus}
-            label="Pending tenant onboarding"
-            loading={onboarding.isLoading}
-            value={pendingOnboarding}
+            icon={DoorOpen}
+            label="Vacant Units"
+            loading={summary.isLoading}
+            value={summary.data?.vacantUnits}
             tone="warning"
           />
           <PrimaryMetric
-            icon={ClipboardPlus}
-            label="Pending applications"
-            loading={applications.isLoading}
-            value={applications.data?.pendingApprovals}
+            icon={UserPlus}
+            label="Active Residents"
+            loading={summary.isLoading}
+            value={summary.data?.activeTenancies ?? summary.data?.occupiedUnits}
             tone="warning"
           />
           <PrimaryMetric
@@ -174,8 +254,6 @@ function LandlordDashboard() {
           />
         </div>
         {summary.isError ||
-        onboarding.isError ||
-        applications.isError ||
         finance.isError ? (
           <p className="mt-4 text-sm text-orange-700">
             Some overview metrics are temporarily unavailable. Refresh to try
@@ -186,7 +264,7 @@ function LandlordDashboard() {
 
       <Card className="mt-6 p-4 sm:p-5">
         <p className="px-1 text-xs font-semibold uppercase tracking-[0.16em] text-slate-400">
-          Quick actions
+          Oversight shortcuts
         </p>
         <div className="mt-3 grid gap-2 sm:grid-cols-2 xl:grid-cols-4">
           {quickActions.map(({ icon: Icon, label, href }) => (
@@ -211,7 +289,7 @@ function LandlordDashboard() {
         <Card className="min-w-0">
           <div>
             <p className="text-sm font-medium text-emerald-700">
-              Rent visibility
+              Rent & payouts
             </p>
             <h2 className="mt-2 text-lg font-semibold text-slate-950">
               Financial snapshot
@@ -232,7 +310,7 @@ function LandlordDashboard() {
           ) : null}
           {finance.isError ? (
             <p className="mt-6 text-sm text-slate-500">
-              Rent visibility is currently unavailable.
+              Rent and payout visibility is currently unavailable.
             </p>
           ) : null}
           {finance.data ? (
@@ -264,7 +342,8 @@ function LandlordDashboard() {
               Keep every unit accounted for
             </h2>
             <p className="mt-2 text-sm leading-6 text-slate-300">
-              Add units and keep occupancy records clear across your portfolio.
+              Monitor unit readiness and keep occupancy records clear across
+              your portfolio.
             </p>
           </div>
           <Button
@@ -272,7 +351,7 @@ function LandlordDashboard() {
             className="mt-7 w-full bg-white text-slate-950 hover:bg-slate-100"
           >
             <Link href="/properties">
-              Manage properties <ArrowRight className="ml-2 size-4" />
+              Monitor portfolio <ArrowRight className="ml-2 size-4" />
             </Link>
           </Button>
         </Card>
@@ -289,7 +368,7 @@ function LandlordDashboard() {
             </h2>
           </div>
           <Button asChild variant="ghost">
-            <Link href="/payments">View records</Link>
+            <Link href="/payments">View rent records</Link>
           </Button>
         </div>
         {finance.isLoading || occupancy.isLoading ? (
@@ -353,7 +432,7 @@ function TenantWorkspace() {
     0,
   );
 
-  const tenantName = activeTenancy?.user.profile
+  const residentName = activeTenancy?.user.profile
     ? `${activeTenancy.user.profile.firstName} ${activeTenancy.user.profile.lastName}`
     : activeTenancy?.user.email;
 
@@ -369,7 +448,7 @@ function TenantWorkspace() {
         <div className="mt-3 flex flex-col justify-between gap-5 sm:flex-row sm:items-end">
           <div>
             <h1 className="text-3xl font-semibold tracking-tight text-slate-950">
-              Welcome{tenantName ? `, ${tenantName.split(" ")[0]}` : ""}
+              Welcome{residentName ? `, ${residentName.split(" ")[0]}` : ""}
             </h1>
             <p className="mt-2 max-w-2xl text-sm leading-6 text-slate-500">
               A calm place to view rent, agreements, maintenance and your home
@@ -413,7 +492,7 @@ function TenantWorkspace() {
       {tenancies.isError ? (
         <Card className="mt-8 border-orange-100 bg-orange-50/50">
           <p className="text-sm text-orange-700">
-            Your tenancy records are temporarily unavailable.
+            Your residence records are temporarily unavailable.
           </p>
         </Card>
       ) : null}
@@ -421,9 +500,9 @@ function TenantWorkspace() {
       {!tenancies.isLoading && !tenancies.isError && !activeTenancy ? (
         <Card className="mt-8 py-14 text-center">
           <KeyRound className="mx-auto size-8 text-slate-400" />
-          <h2 className="mt-4 font-semibold">No active tenancy yet</h2>
+          <h2 className="mt-4 font-semibold">No active residence yet</h2>
           <p className="mt-2 text-sm text-slate-500">
-            Your tenancy records will appear here once they are active.
+            Your home records will appear here once they are active.
           </p>
         </Card>
       ) : null}
@@ -601,15 +680,7 @@ function TenantWorkspace() {
 }
 
 function CaretakerDashboard() {
-  const applications = useApplicationsSummary();
-  const onboarding = useTenantOnboardingRequests();
-  const tenancies = useTenancies("");
-  const finance = usePaymentSummary();
-  const pendingOnboarding =
-    onboarding.data?.filter((request) => request.status === "pending").length;
-  const activeTenancies =
-    tenancies.data?.items.filter((tenancy) => tenancy.status === "active")
-      .length ?? 0;
+  const summary = useCaretakerSummary();
 
   return (
     <main className="mx-auto max-w-6xl p-5 lg:p-8">
@@ -635,29 +706,31 @@ function CaretakerDashboard() {
         <PrimaryMetric
           icon={ClipboardPlus}
           label="Pending applications"
-          loading={applications.isLoading}
-          value={applications.data?.pendingApprovals}
+          loading={summary.isLoading}
+          value={summary.data?.pendingApplications}
           tone="warning"
         />
         <PrimaryMetric
           icon={UserPlus}
           label="Tenant submissions"
-          loading={onboarding.isLoading}
-          value={pendingOnboarding}
+          loading={summary.isLoading}
+          value={summary.data?.pendingTenantSubmissions}
           tone="warning"
         />
         <PrimaryMetric
           icon={KeyRound}
           label="Active tenancies"
-          loading={tenancies.isLoading}
-          value={activeTenancies}
+          loading={summary.isLoading}
+          value={summary.data?.activeTenancies}
         />
         <PrimaryMetric
           icon={ReceiptText}
           label="Rent received"
-          loading={finance.isLoading}
+          loading={summary.isLoading}
           value={
-            finance.data ? formatCurrency(finance.data.totalReceived) : undefined
+            summary.data
+              ? formatCurrency(summary.data.totalCollected)
+              : undefined
           }
           tone="positive"
         />
@@ -676,25 +749,25 @@ function CaretakerDashboard() {
               href="/applications"
               icon={ClipboardPlus}
               label="Review applicant records"
-              value={`${applications.data?.pendingApprovals ?? 0} pending`}
+              value={`${summary.data?.pendingApplications ?? 0} pending`}
             />
             <QueueLink
               href="/tenant-onboarding-requests"
               icon={UserPlus}
               label="Tenant submissions"
-              value={`${pendingOnboarding ?? 0} awaiting review`}
+              value={`${summary.data?.pendingTenantSubmissions ?? 0} awaiting review`}
             />
             <QueueLink
               href="/payments"
               icon={CreditCard}
               label="Payment records"
-              value="Record and verify rent"
+              value={`${summary.data?.pendingPayments ?? 0} pending, ${summary.data?.overduePayments ?? 0} overdue`}
             />
             <QueueLink
               href="/maintenance"
               icon={LifeBuoy}
               label="Resident support"
-              value="Track maintenance requests"
+              value={`${summary.data?.openMaintenanceRequests ?? 0} open requests`}
             />
           </div>
         </Card>
@@ -801,6 +874,17 @@ function PrimaryMetric({
         </p>
       )}
     </Card>
+  );
+}
+
+function UsagePill({ label, value }: { label: string; value: string }) {
+  return (
+    <div className="rounded-2xl border border-white/80 bg-white/70 p-4">
+      <p className="text-xs font-medium uppercase tracking-[0.14em] text-slate-400">
+        {label}
+      </p>
+      <p className="mt-2 text-sm font-semibold text-slate-950">{value}</p>
+    </div>
   );
 }
 

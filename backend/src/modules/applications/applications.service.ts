@@ -8,8 +8,12 @@ import {
 import {
   ApplicationStatus,
   Prisma,
+  PropertyListingStatus,
+  PropertyVerificationStatus,
+  UnitReadinessStatus,
   UnitStatus,
   UserRole,
+  VacancyStatus,
 } from '@prisma/client';
 import * as bcrypt from 'bcrypt';
 import { randomBytes } from 'crypto';
@@ -28,12 +32,19 @@ import {
 const applicationStatusMap: Record<ApplicationStatusInput, ApplicationStatus> =
   {
     [ApplicationStatusInput.PENDING]: ApplicationStatus.PENDING,
+    [ApplicationStatusInput.SUBMITTED]: ApplicationStatus.PENDING,
+    [ApplicationStatusInput.INSPECTION_REQUIRED]:
+      ApplicationStatus.INSPECTION_REQUIRED,
+    [ApplicationStatusInput.INSPECTION_SCHEDULED]:
+      ApplicationStatus.INSPECTION_SCHEDULED,
     [ApplicationStatusInput.INSPECTION_BOOKED]:
-      ApplicationStatus.INSPECTION_BOOKED,
+      ApplicationStatus.INSPECTION_SCHEDULED,
     [ApplicationStatusInput.UNDER_REVIEW]: ApplicationStatus.UNDER_REVIEW,
     [ApplicationStatusInput.APPROVED]: ApplicationStatus.APPROVED,
     [ApplicationStatusInput.REJECTED]: ApplicationStatus.REJECTED,
     [ApplicationStatusInput.CONVERTED_TO_TENANT]:
+      ApplicationStatus.CONVERTED_TO_TENANT,
+    [ApplicationStatusInput.CONVERTED_TO_RESIDENT]:
       ApplicationStatus.CONVERTED_TO_TENANT,
   };
 const finalizedStatuses: ApplicationStatus[] = [
@@ -45,9 +56,16 @@ const allowedStatusTransitions: Partial<
   Record<ApplicationStatus, ApplicationStatus[]>
 > = {
   [ApplicationStatus.PENDING]: [
+    ApplicationStatus.INSPECTION_REQUIRED,
+    ApplicationStatus.INSPECTION_SCHEDULED,
     ApplicationStatus.INSPECTION_BOOKED,
     ApplicationStatus.UNDER_REVIEW,
   ],
+  [ApplicationStatus.INSPECTION_REQUIRED]: [
+    ApplicationStatus.INSPECTION_SCHEDULED,
+    ApplicationStatus.UNDER_REVIEW,
+  ],
+  [ApplicationStatus.INSPECTION_SCHEDULED]: [ApplicationStatus.UNDER_REVIEW],
   [ApplicationStatus.INSPECTION_BOOKED]: [ApplicationStatus.UNDER_REVIEW],
 };
 
@@ -453,8 +471,15 @@ export class ApplicationsService {
       },
       select: {
         status: true,
+        readinessStatus: true,
         isPubliclyVisible: true,
-        property: { select: { landlordId: true } },
+        property: {
+          select: {
+            landlordId: true,
+            verificationStatus: true,
+            listingStatus: true,
+          },
+        },
       },
     });
     if (!unit) {
@@ -482,10 +507,32 @@ export class ApplicationsService {
       await this.requireAssignedCaretaker(dto.propertyId, caretakerId);
       return { landlordId, caretakerId };
     }
-    if (!unit.isPubliclyVisible) {
+    if (!dto.vacancyListingId) {
+      throw new BadRequestException(
+        'Published vacancy listing is required for renter applications',
+      );
+    }
+    if (
+      !unit.isPubliclyVisible ||
+      unit.readinessStatus !== UnitReadinessStatus.READY ||
+      unit.property.verificationStatus !== PropertyVerificationStatus.VERIFIED ||
+      unit.property.listingStatus !== PropertyListingStatus.APPROVED
+    ) {
       throw new ForbiddenException(
         'This unit is not available for applications',
       );
+    }
+    const listing = await this.prisma.vacancyListing.findFirst({
+      where: {
+        id: dto.vacancyListingId,
+        unitId: dto.unitId,
+        deletedAt: null,
+        status: VacancyStatus.PUBLISHED,
+      },
+      select: { id: true },
+    });
+    if (!listing) {
+      throw new NotFoundException('Published rental not found');
     }
     return { landlordId, caretakerId: undefined };
   }
@@ -495,15 +542,22 @@ export class ApplicationsService {
     user: AuthUser,
     dto: CreateApplicationDto,
   ): Promise<string> {
-    if (user.role === UserRole.APPLICANT) {
+    if (user.role === UserRole.APPLICANT || user.role === UserRole.TENANT) {
       const applicant = await tx.applicant.findFirst({
         where: { userId: user.id, deletedAt: null },
         select: { id: true },
       });
-      if (!applicant) {
+      if (applicant) {
+        return applicant.id;
+      }
+      if (user.role === UserRole.APPLICANT) {
         throw new NotFoundException('Applicant profile not found');
       }
-      return applicant.id;
+      const createdApplicant = await tx.applicant.create({
+        data: { userId: user.id },
+        select: { id: true },
+      });
+      return createdApplicant.id;
     }
     if (!dto.applicant) {
       throw new BadRequestException(
@@ -654,14 +708,20 @@ export class ApplicationsService {
         },
       };
     }
-    const applicant = await this.prisma.applicant.findFirst({
-      where: { userId: user.id, deletedAt: null },
-      select: { id: true },
-    });
-    if (!applicant) {
-      throw new NotFoundException('Applicant profile not found');
+    if (user.role === UserRole.APPLICANT || user.role === UserRole.TENANT) {
+      const applicant = await this.prisma.applicant.findFirst({
+        where: { userId: user.id, deletedAt: null },
+        select: { id: true },
+      });
+      if (!applicant) {
+        if (user.role === UserRole.TENANT) {
+          return { applicantId: '00000000-0000-0000-0000-000000000000' };
+        }
+        throw new NotFoundException('Applicant profile not found');
+      }
+      return { applicantId: applicant.id };
     }
-    return { applicantId: applicant.id };
+    throw new ForbiddenException('Applications are not available for this role');
   }
 
   private async requireLandlordId(userId: string): Promise<string> {

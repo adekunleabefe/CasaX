@@ -7,6 +7,7 @@ import type {
   ApplicationUpdateInput,
   AvailableApplicationProperty,
   CaretakerAssignment,
+  CaretakerSummary,
   Unit,
   UnitStatus,
 } from "@casax/types";
@@ -14,11 +15,14 @@ import { apiRequest } from "./api";
 
 type WireApplicationStatus =
   | "PENDING"
+  | "INSPECTION_REQUIRED"
+  | "INSPECTION_SCHEDULED"
   | "INSPECTION_BOOKED"
   | "UNDER_REVIEW"
   | "APPROVED"
   | "REJECTED"
-  | "CONVERTED_TO_TENANT";
+  | "CONVERTED_TO_TENANT"
+  | "CONVERTED_TO_RESIDENT";
 type WireUnitStatus =
   | "VACANT"
   | "OCCUPIED"
@@ -45,11 +49,14 @@ type WireApplication = Omit<
 
 const applicationStatus: Record<WireApplicationStatus, ApplicationStatus> = {
   PENDING: "pending",
+  INSPECTION_REQUIRED: "inspection_required",
+  INSPECTION_SCHEDULED: "inspection_scheduled",
   INSPECTION_BOOKED: "inspection_booked",
   UNDER_REVIEW: "under_review",
   APPROVED: "approved",
   REJECTED: "rejected",
   CONVERTED_TO_TENANT: "converted_to_tenant",
+  CONVERTED_TO_RESIDENT: "converted_to_resident",
 };
 const unitStatus = {
   VACANT: "vacant",
@@ -199,4 +206,8 @@ export async function rejectApplication(id: string, reason?: string) {
 
 export async function getApplicationsSummary(): Promise<ApplicationsSummary> {
   return apiRequest<ApplicationsSummary>("/dashboard/applications-summary");
+}
+
+export async function getCaretakerSummary(): Promise<CaretakerSummary> {
+  return apiRequest<CaretakerSummary>("/dashboard/caretaker-summary");
 }

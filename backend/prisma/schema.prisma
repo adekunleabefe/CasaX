@@ -20,12 +20,31 @@ enum PropertyStatus {
   INACTIVE @map("inactive")
 }
 
+enum PropertyVerificationStatus {
+  PENDING  @map("pending")
+  VERIFIED @map("verified")
+  REJECTED @map("rejected")
+}
+
+enum PropertyListingStatus {
+  DRAFT          @map("draft")
+  PENDING_REVIEW @map("pending_review")
+  APPROVED       @map("approved")
+  REJECTED       @map("rejected")
+  SUSPENDED      @map("suspended")
+}
+
 enum UnitStatus {
   VACANT           @map("vacant")
   OCCUPIED         @map("occupied")
   PENDING_APPROVAL @map("pending_approval")
   MAINTENANCE      @map("maintenance")
   INACTIVE         @map("inactive")
+}
+
+enum UnitReadinessStatus {
+  INCOMPLETE @map("incomplete")
+  READY      @map("ready")
 }
 
 enum VacancyStatus {
@@ -37,6 +56,8 @@ enum VacancyStatus {
 
 enum ApplicationStatus {
   PENDING             @map("pending")
+  INSPECTION_REQUIRED @map("inspection_required")
+  INSPECTION_SCHEDULED @map("inspection_scheduled")
   INSPECTION_BOOKED   @map("inspection_booked")
   UNDER_REVIEW        @map("under_review")
   APPROVED            @map("approved")
@@ -111,11 +132,12 @@ enum EmailType {
 }
 
 enum PaymentStatus {
-  PENDING   @map("pending")
-  PAID      @map("paid")
-  OVERDUE   @map("overdue")
-  FAILED    @map("failed")
-  CANCELLED @map("cancelled")
+  PENDING    @map("pending")
+  PROCESSING @map("processing")
+  PAID       @map("paid")
+  OVERDUE    @map("overdue")
+  FAILED     @map("failed")
+  CANCELLED  @map("cancelled")
 }
 
 enum PaymentMethod {
@@ -124,6 +146,25 @@ enum PaymentMethod {
   POS            @map("pos")
   CARD           @map("card")
   ONLINE_GATEWAY @map("online_gateway")
+}
+
+enum PaymentProvider {
+  PAYSTACK    @map("paystack")
+  FLUTTERWAVE @map("flutterwave")
+}
+
+enum PaymentPurpose {
+  RENT    @map("rent")
+  RENEWAL @map("renewal")
+}
+
+enum LandlordRemittanceStatus {
+  PENDING    @map("pending")
+  APPROVED   @map("approved")
+  PROCESSING @map("processing")
+  PAID       @map("paid")
+  FAILED     @map("failed")
+  REJECTED   @map("rejected")
 }
 
 enum RemittanceStatus {
@@ -141,18 +182,40 @@ enum MaintenanceStatus {
   CANCELLED   @map("cancelled")
 }
 
-enum SubscriptionPlan {
+enum LegacySubscriptionPlan {
   STARTER  @map("starter")
   GROWTH   @map("growth")
   BUSINESS @map("business")
+
+  @@map("SubscriptionPlan")
+}
+
+enum SubscriptionPlanType {
+  STARTER    @map("starter")
+  GROWTH     @map("growth")
+  ENTERPRISE @map("enterprise")
+}
+
+enum BillingCycle {
+  MONTHLY  @map("monthly")
+  ANNUALLY @map("annually")
+  CUSTOM   @map("custom")
 }
 
 enum SubscriptionStatus {
-  TRIAL     @map("trial")
+  TRIALING  @map("trialing")
   ACTIVE    @map("active")
   PAST_DUE  @map("past_due")
   CANCELLED @map("cancelled")
   EXPIRED   @map("expired")
+}
+
+enum SubscriptionPaymentStatus {
+  PENDING    @map("pending")
+  PROCESSING @map("processing")
+  PAID       @map("paid")
+  FAILED     @map("failed")
+  CANCELLED  @map("cancelled")
 }
 
 model User {
@@ -177,6 +240,11 @@ model User {
   createdApplications     VacancyApplication[]         @relation("ApplicationCreator")
   applicationReviews      ApplicationApprovalHistory[] @relation("ApplicationReviewer")
   rentPaymentsMade        RentPayment[]                @relation("RentPayer")
+  rentPaymentsAsTenant    RentPayment[]                @relation("RentPaymentTenant")
+  renewalPayments         LeaseRenewalPayment[]        @relation("RenewalPaymentTenant")
+  paymentTransactions     PaymentTransaction[]         @relation("PaymentTransactionTenant")
+  receipts                Receipt[]                    @relation("ReceiptTenant")
+  approvedRemittances     LandlordRemittance[]         @relation("RemittanceApprover")
   submittedOnboarding     TenantOnboardingRequest[]    @relation("OnboardingSubmitter")
   reviewedOnboarding      TenantOnboardingRequest[]    @relation("OnboardingReviewer")
   createdAgreements       TenancyAgreement[]           @relation("AgreementCreator")
@@ -209,23 +277,26 @@ model Profile {
 }
 
 model Landlord {
-  id                   String                    @id @default(uuid()) @db.Uuid
-  userId               String                    @unique @map("user_id") @db.Uuid
-  user                 User                      @relation(fields: [userId], references: [id], onDelete: Restrict)
-  businessName         String?                   @map("business_name")
-  properties           Property[]
-  caretakerAssignments CaretakerAssignment[]
-  tenancies            Tenancy[]
-  rentPayments         RentPayment[]
-  remittances          RemittanceRecord[]
-  subscriptions        Subscription[]
-  vacancyListings      VacancyListing[]
-  applications         VacancyApplication[]
-  onboardingRequests   TenantOnboardingRequest[]
-  agreements           TenancyAgreement[]
-  createdAt            DateTime                  @default(now()) @map("created_at")
-  updatedAt            DateTime                  @updatedAt @map("updated_at")
-  deletedAt            DateTime?                 @map("deleted_at")
+  id                    String                    @id @default(uuid()) @db.Uuid
+  userId                String                    @unique @map("user_id") @db.Uuid
+  user                  User                      @relation(fields: [userId], references: [id], onDelete: Restrict)
+  businessName          String?                   @map("business_name")
+  properties            Property[]
+  caretakerAssignments  CaretakerAssignment[]
+  tenancies             Tenancy[]
+  rentPayments          RentPayment[]
+  remittances           RemittanceRecord[]
+  landlordRemittances   LandlordRemittance[]
+  subscriptions         Subscription[]
+  landlordSubscriptions LandlordSubscription[]
+  subscriptionPayments  SubscriptionPayment[]
+  vacancyListings       VacancyListing[]
+  applications          VacancyApplication[]
+  onboardingRequests    TenantOnboardingRequest[]
+  agreements            TenancyAgreement[]
+  createdAt             DateTime                  @default(now()) @map("created_at")
+  updatedAt             DateTime                  @updatedAt @map("updated_at")
+  deletedAt             DateTime?                 @map("deleted_at")
 
   @@index([deletedAt])
   @@map("landlords")
@@ -255,6 +326,7 @@ model Applicant {
   user               User                 @relation(fields: [userId], references: [id], onDelete: Restrict)
   applications       VacancyApplication[]
   inspectionBookings InspectionBooking[]
+  savedRentals       SavedRental[]
   tenancies          Tenancy[]
   createdAt          DateTime             @default(now()) @map("created_at")
   updatedAt          DateTime             @updatedAt @map("updated_at")
@@ -264,16 +336,34 @@ model Applicant {
   @@map("applicants")
 }
 
+model SavedRental {
+  id               String         @id @default(uuid()) @db.Uuid
+  applicantId      String         @map("applicant_id") @db.Uuid
+  applicant        Applicant      @relation(fields: [applicantId], references: [id], onDelete: Cascade)
+  vacancyListingId String         @map("vacancy_listing_id") @db.Uuid
+  vacancyListing   VacancyListing @relation(fields: [vacancyListingId], references: [id], onDelete: Restrict)
+  createdAt        DateTime       @default(now()) @map("created_at")
+  deletedAt        DateTime?      @map("deleted_at")
+
+  @@unique([applicantId, vacancyListingId])
+  @@index([applicantId, createdAt])
+  @@index([vacancyListingId])
+  @@index([deletedAt])
+  @@map("saved_rentals")
+}
+
 model Property {
-  id                   String                    @id @default(uuid()) @db.Uuid
-  landlordId           String                    @map("landlord_id") @db.Uuid
-  landlord             Landlord                  @relation(fields: [landlordId], references: [id], onDelete: Restrict)
+  id                   String                     @id @default(uuid()) @db.Uuid
+  landlordId           String                     @map("landlord_id") @db.Uuid
+  landlord             Landlord                   @relation(fields: [landlordId], references: [id], onDelete: Restrict)
   name                 String
   address              String
   city                 String
   state                String
   type                 String
-  status               PropertyStatus            @default(ACTIVE)
+  status               PropertyStatus             @default(ACTIVE)
+  verificationStatus   PropertyVerificationStatus @default(PENDING) @map("verification_status")
+  listingStatus        PropertyListingStatus      @default(PENDING_REVIEW) @map("listing_status")
   units                Unit[]
   caretakerAssignments CaretakerAssignment[]
   tenancies            Tenancy[]
@@ -282,11 +372,15 @@ model Property {
   applications         VacancyApplication[]
   rentPayments         RentPayment[]
   remittances          RemittanceRecord[]
+  renewalPayments      LeaseRenewalPayment[]
+  paymentTransactions  PaymentTransaction[]
+  receipts             Receipt[]
+  landlordRemittances  LandlordRemittance[]
   onboardingRequests   TenantOnboardingRequest[]
   agreements           TenancyAgreement[]
-  createdAt            DateTime                  @default(now()) @map("created_at")
-  updatedAt            DateTime                  @updatedAt @map("updated_at")
-  deletedAt            DateTime?                 @map("deleted_at")
+  createdAt            DateTime                   @default(now()) @map("created_at")
+  updatedAt            DateTime                   @updatedAt @map("updated_at")
+  deletedAt            DateTime?                  @map("deleted_at")
 
   @@index([landlordId, status])
   @@index([city, state])
@@ -301,9 +395,20 @@ model Unit {
   name                 String
   rentAmount           Decimal                   @map("rent_amount") @db.Decimal(14, 2)
   bedroomCount         Int                       @map("bedroom_count")
+  bathroomCount        Int                       @default(0) @map("bathroom_count")
   unitType             String                    @map("unit_type")
+  listingTitle         String?                   @map("listing_title")
+  publicDescription    String?                   @map("public_description")
+  photos               Json?                     @map("photos")
+  amenities            String[]                  @default([])
+  serviceCharge        Decimal?                  @map("service_charge") @db.Decimal(14, 2)
+  depositAmount        Decimal?                  @map("deposit_amount") @db.Decimal(14, 2)
+  availabilityDate     DateTime?                 @map("availability_date")
+  inspectionNotes      String?                   @map("inspection_notes")
+  readinessStatus      UnitReadinessStatus       @default(INCOMPLETE) @map("readiness_status")
   status               UnitStatus                @default(VACANT)
   isPubliclyVisible    Boolean                   @default(false) @map("is_publicly_visible")
+  images               UnitImage[]
   vacancyListings      VacancyListing[]
   applications         VacancyApplication[]
   inspectionBookings   InspectionBooking[]
@@ -320,9 +425,28 @@ model Unit {
 
   @@unique([propertyId, name])
   @@index([propertyId, status])
+  @@index([propertyId, readinessStatus])
   @@index([status, isPubliclyVisible])
   @@index([deletedAt])
   @@map("units")
+}
+
+model UnitImage {
+  id        String   @id @default(uuid()) @db.Uuid
+  unitId    String   @map("unit_id") @db.Uuid
+  unit      Unit     @relation(fields: [unitId], references: [id], onDelete: Cascade)
+  imageUrl  String   @map("image_url")
+  storageKey String? @map("storage_key")
+  caption   String?
+  category  String?
+  sortOrder Int      @default(0) @map("sort_order")
+  isCover   Boolean  @default(false) @map("is_cover")
+  createdAt DateTime @default(now()) @map("created_at")
+  updatedAt DateTime @updatedAt @map("updated_at")
+
+  @@index([unitId, sortOrder])
+  @@index([unitId, isCover])
+  @@map("unit_images")
 }
 
 model VacancyListing {
@@ -337,6 +461,7 @@ model VacancyListing {
   publishedAt  DateTime?            @map("published_at")
   applications VacancyApplication[]
   inspections  InspectionBooking[]
+  savedRentals SavedRental[]
   createdAt    DateTime             @default(now()) @map("created_at")
   updatedAt    DateTime             @updatedAt @map("updated_at")
   deletedAt    DateTime?            @map("deleted_at")
@@ -450,6 +575,8 @@ model Tenancy {
   occupancyRecords          OccupancyRecord[]
   occupancyAssignments      OccupancyAssignment[]
   rentPayments              RentPayment[]
+  renewalPayments           LeaseRenewalPayment[]
+  paymentTransactions       PaymentTransaction[]
   maintenanceRequests       MaintenanceRequest[]
   agreement                 TenancyAgreement?
   invitations               TenantInvitation[]
@@ -677,6 +804,8 @@ model RentPayment {
   landlord               Landlord             @relation(fields: [landlordId], references: [id], onDelete: Restrict)
   propertyId             String               @map("property_id") @db.Uuid
   property               Property             @relation(fields: [propertyId], references: [id], onDelete: Restrict)
+  tenantId               String?              @map("tenant_id") @db.Uuid
+  tenant                 User?                @relation("RentPaymentTenant", fields: [tenantId], references: [id], onDelete: Restrict)
   payerId                String               @map("payer_id") @db.Uuid
   payer                  User                 @relation("RentPayer", fields: [payerId], references: [id], onDelete: Restrict)
   collectedByCaretakerId String?              @map("collected_by_caretaker_id") @db.Uuid
@@ -685,12 +814,20 @@ model RentPayment {
   dueDate                DateTime             @map("due_date")
   paidAt                 DateTime?            @map("paid_at")
   status                 PaymentStatus        @default(PENDING)
+  frequency              PaymentFrequency     @default(YEARLY)
   method                 PaymentMethod        @default(BANK_TRANSFER)
   reference              String?              @unique
+  transactionId          String?              @unique @map("transaction_id") @db.Uuid
+  paymentReference       String?              @unique @map("payment_reference")
+  providerReference      String?              @unique @map("provider_reference")
+  authorizationUrl       String?              @map("authorization_url")
   notes                  String?
   proofUrl               String?              @map("proof_url")
+  metadata               Json?
   remittanceAllocations  RemittancePayment[]
   transactions           PaymentTransaction[]
+  receipts               Receipt[]
+  landlordRemittances    LandlordRemittance[]
   createdAt              DateTime             @default(now()) @map("created_at")
   updatedAt              DateTime             @updatedAt @map("updated_at")
   deletedAt              DateTime?            @map("deleted_at")
@@ -698,6 +835,7 @@ model RentPayment {
   @@index([landlordId, status])
   @@index([propertyId, status])
   @@index([tenancyId, dueDate])
+  @@index([tenantId, status])
   @@index([collectedByCaretakerId, status])
   @@index([payerId, status])
   @@index([status, dueDate])
@@ -747,20 +885,124 @@ model RemittancePayment {
 }
 
 model PaymentTransaction {
-  id            String        @id @default(uuid()) @db.Uuid
-  rentPaymentId String        @map("rent_payment_id") @db.Uuid
-  rentPayment   RentPayment   @relation(fields: [rentPaymentId], references: [id], onDelete: Restrict)
-  provider      PaymentMethod
-  externalRef   String?       @unique @map("external_ref")
-  amount        Decimal       @db.Decimal(14, 2)
-  status        PaymentStatus @default(PENDING)
-  payload       Json?
-  verifiedAt    DateTime?     @map("verified_at")
-  createdAt     DateTime      @default(now()) @map("created_at")
-  updatedAt     DateTime      @updatedAt @map("updated_at")
+  id                    String               @id @default(uuid()) @db.Uuid
+  rentPaymentId         String?              @map("rent_payment_id") @db.Uuid
+  rentPayment           RentPayment?         @relation(fields: [rentPaymentId], references: [id], onDelete: Restrict)
+  leaseRenewalPaymentId String?              @map("lease_renewal_payment_id") @db.Uuid
+  leaseRenewalPayment   LeaseRenewalPayment? @relation(fields: [leaseRenewalPaymentId], references: [id], onDelete: Restrict)
+  tenantId              String               @map("tenant_id") @db.Uuid
+  tenant                User                 @relation("PaymentTransactionTenant", fields: [tenantId], references: [id], onDelete: Restrict)
+  propertyId            String               @map("property_id") @db.Uuid
+  property              Property             @relation(fields: [propertyId], references: [id], onDelete: Restrict)
+  tenancyId             String               @map("tenancy_id") @db.Uuid
+  tenancy               Tenancy              @relation(fields: [tenancyId], references: [id], onDelete: Restrict)
+  purpose               PaymentPurpose
+  provider              PaymentProvider
+  reference             String               @unique
+  paymentReference      String?              @unique @map("payment_reference")
+  providerReference     String?              @unique @map("provider_reference")
+  authorizationUrl      String?              @map("authorization_url")
+  externalRef           String?              @unique @map("external_ref")
+  amount                Decimal              @db.Decimal(14, 2)
+  currency              String               @default("NGN")
+  status                PaymentStatus        @default(PENDING)
+  paidAt                DateTime?            @map("paid_at")
+  metadata              Json?
+  payload               Json?
+  verifiedAt            DateTime?            @map("verified_at")
+  receipts              Receipt[]
+  createdAt             DateTime             @default(now()) @map("created_at")
+  updatedAt             DateTime             @updatedAt @map("updated_at")
 
   @@index([rentPaymentId, status])
+  @@index([leaseRenewalPaymentId, status])
+  @@index([tenantId, status])
+  @@index([propertyId, status])
+  @@index([tenancyId, purpose, status])
+  @@index([provider, status])
   @@map("payment_transactions")
+}
+
+model LeaseRenewalPayment {
+  id               String               @id @default(uuid()) @db.Uuid
+  tenantId         String               @map("tenant_id") @db.Uuid
+  tenant           User                 @relation("RenewalPaymentTenant", fields: [tenantId], references: [id], onDelete: Restrict)
+  propertyId       String               @map("property_id") @db.Uuid
+  property         Property             @relation(fields: [propertyId], references: [id], onDelete: Restrict)
+  tenancyId        String               @map("tenancy_id") @db.Uuid
+  tenancy          Tenancy              @relation(fields: [tenancyId], references: [id], onDelete: Restrict)
+  amount           Decimal              @db.Decimal(14, 2)
+  renewalStartDate DateTime             @map("renewal_start_date")
+  renewalEndDate   DateTime             @map("renewal_end_date")
+  status           PaymentStatus        @default(PENDING)
+  transactionId    String?              @unique @map("transaction_id") @db.Uuid
+  transactions     PaymentTransaction[]
+  receipts         Receipt[]
+  remittances      LandlordRemittance[]
+  createdAt        DateTime             @default(now()) @map("created_at")
+  updatedAt        DateTime             @updatedAt @map("updated_at")
+  deletedAt        DateTime?            @map("deleted_at")
+
+  @@index([tenantId, status])
+  @@index([propertyId, status])
+  @@index([tenancyId, status])
+  @@index([status, renewalStartDate])
+  @@map("lease_renewal_payments")
+}
+
+model Receipt {
+  id                    String               @id @default(uuid()) @db.Uuid
+  receiptNumber         String               @unique @map("receipt_number")
+  tenantId              String               @map("tenant_id") @db.Uuid
+  tenant                User                 @relation("ReceiptTenant", fields: [tenantId], references: [id], onDelete: Restrict)
+  propertyId            String               @map("property_id") @db.Uuid
+  property              Property             @relation(fields: [propertyId], references: [id], onDelete: Restrict)
+  rentPaymentId         String?              @map("rent_payment_id") @db.Uuid
+  rentPayment           RentPayment?         @relation(fields: [rentPaymentId], references: [id], onDelete: Restrict)
+  leaseRenewalPaymentId String?              @map("lease_renewal_payment_id") @db.Uuid
+  leaseRenewalPayment   LeaseRenewalPayment? @relation(fields: [leaseRenewalPaymentId], references: [id], onDelete: Restrict)
+  transactionId         String?              @map("transaction_id") @db.Uuid
+  transaction           PaymentTransaction?  @relation(fields: [transactionId], references: [id], onDelete: SetNull)
+  amount                Decimal              @db.Decimal(14, 2)
+  purpose               PaymentPurpose
+  issuedAt              DateTime             @default(now()) @map("issued_at")
+  pdfUrl                String?              @map("pdf_url")
+  metadata              Json?
+  createdAt             DateTime             @default(now()) @map("created_at")
+
+  @@index([tenantId, issuedAt])
+  @@index([rentPaymentId])
+  @@index([leaseRenewalPaymentId])
+  @@index([transactionId])
+  @@map("receipts")
+}
+
+model LandlordRemittance {
+  id                    String                   @id @default(uuid()) @db.Uuid
+  landlordId            String                   @map("landlord_id") @db.Uuid
+  landlord              Landlord                 @relation(fields: [landlordId], references: [id], onDelete: Restrict)
+  propertyId            String                   @map("property_id") @db.Uuid
+  property              Property                 @relation(fields: [propertyId], references: [id], onDelete: Restrict)
+  rentPaymentId         String?                  @map("rent_payment_id") @db.Uuid
+  rentPayment           RentPayment?             @relation(fields: [rentPaymentId], references: [id], onDelete: Restrict)
+  leaseRenewalPaymentId String?                  @map("lease_renewal_payment_id") @db.Uuid
+  leaseRenewalPayment   LeaseRenewalPayment?     @relation(fields: [leaseRenewalPaymentId], references: [id], onDelete: Restrict)
+  grossAmount           Decimal                  @map("gross_amount") @db.Decimal(14, 2)
+  platformFee           Decimal                  @map("platform_fee") @db.Decimal(14, 2)
+  netAmount             Decimal                  @map("net_amount") @db.Decimal(14, 2)
+  status                LandlordRemittanceStatus @default(PENDING)
+  approvedById          String?                  @map("approved_by_id") @db.Uuid
+  approvedBy            User?                    @relation("RemittanceApprover", fields: [approvedById], references: [id], onDelete: SetNull)
+  paidAt                DateTime?                @map("paid_at")
+  metadata              Json?
+  createdAt             DateTime                 @default(now()) @map("created_at")
+  updatedAt             DateTime                 @updatedAt @map("updated_at")
+
+  @@index([landlordId, status])
+  @@index([propertyId, status])
+  @@index([rentPaymentId])
+  @@index([leaseRenewalPaymentId])
+  @@map("landlord_remittances")
 }
 
 model MaintenanceRequest {
@@ -820,21 +1062,94 @@ model Notification {
 }
 
 model Subscription {
-  id                 String             @id @default(uuid()) @db.Uuid
-  landlordId         String             @map("landlord_id") @db.Uuid
-  landlord           Landlord           @relation(fields: [landlordId], references: [id], onDelete: Restrict)
-  plan               SubscriptionPlan
-  status             SubscriptionStatus @default(TRIAL)
-  trialEndsAt        DateTime?          @map("trial_ends_at")
-  currentPeriodStart DateTime           @map("current_period_start")
-  currentPeriodEnd   DateTime           @map("current_period_end")
-  cancelledAt        DateTime?          @map("cancelled_at")
-  createdAt          DateTime           @default(now()) @map("created_at")
-  updatedAt          DateTime           @updatedAt @map("updated_at")
+  id                 String                 @id @default(uuid()) @db.Uuid
+  landlordId         String                 @map("landlord_id") @db.Uuid
+  landlord           Landlord               @relation(fields: [landlordId], references: [id], onDelete: Restrict)
+  plan               LegacySubscriptionPlan
+  status             SubscriptionStatus     @default(TRIALING)
+  trialEndsAt        DateTime?              @map("trial_ends_at")
+  currentPeriodStart DateTime               @map("current_period_start")
+  currentPeriodEnd   DateTime               @map("current_period_end")
+  cancelledAt        DateTime?              @map("cancelled_at")
+  createdAt          DateTime               @default(now()) @map("created_at")
+  updatedAt          DateTime               @updatedAt @map("updated_at")
 
   @@index([landlordId, status])
   @@index([status, currentPeriodEnd])
   @@map("subscriptions")
+}
+
+model SubscriptionPlan {
+  id                     String                 @id @default(uuid()) @db.Uuid
+  name                   String
+  type                   SubscriptionPlanType   @unique
+  description            String
+  monthlyPrice           Decimal?               @map("monthly_price") @db.Decimal(14, 2)
+  annualPrice            Decimal?               @map("annual_price") @db.Decimal(14, 2)
+  maxProperties          Int?                   @map("max_properties")
+  maxUnits               Int?                   @map("max_units")
+  maxCaretakers          Int?                   @map("max_caretakers")
+  includesVacancyListing Boolean                @default(true) @map("includes_vacancy_listing")
+  isActive               Boolean                @default(true) @map("is_active")
+  isCustom               Boolean                @default(false) @map("is_custom")
+  subscriptions          LandlordSubscription[]
+  payments               SubscriptionPayment[]
+  createdAt              DateTime               @default(now()) @map("created_at")
+  updatedAt              DateTime               @updatedAt @map("updated_at")
+
+  @@index([isActive, type])
+  @@map("subscription_plans")
+}
+
+model LandlordSubscription {
+  id                 String                @id @default(uuid()) @db.Uuid
+  landlordId         String                @map("landlord_id") @db.Uuid
+  landlord           Landlord              @relation(fields: [landlordId], references: [id], onDelete: Restrict)
+  planId             String                @map("plan_id") @db.Uuid
+  plan               SubscriptionPlan      @relation(fields: [planId], references: [id], onDelete: Restrict)
+  status             SubscriptionStatus    @default(TRIALING)
+  billingCycle       BillingCycle          @default(MONTHLY) @map("billing_cycle")
+  trialStartedAt     DateTime              @default(now()) @map("trial_started_at")
+  trialEndsAt        DateTime              @map("trial_ends_at")
+  currentPeriodStart DateTime?             @map("current_period_start")
+  currentPeriodEnd   DateTime?             @map("current_period_end")
+  cancelledAt        DateTime?             @map("cancelled_at")
+  metadata           Json?
+  payments           SubscriptionPayment[]
+  createdAt          DateTime              @default(now()) @map("created_at")
+  updatedAt          DateTime              @updatedAt @map("updated_at")
+
+  @@index([landlordId, status])
+  @@index([status, trialEndsAt])
+  @@index([planId])
+  @@map("landlord_subscriptions")
+}
+
+model SubscriptionPayment {
+  id                String                    @id @default(uuid()) @db.Uuid
+  landlordId        String                    @map("landlord_id") @db.Uuid
+  landlord          Landlord                  @relation(fields: [landlordId], references: [id], onDelete: Restrict)
+  subscriptionId    String                    @map("subscription_id") @db.Uuid
+  subscription      LandlordSubscription      @relation(fields: [subscriptionId], references: [id], onDelete: Restrict)
+  planId            String                    @map("plan_id") @db.Uuid
+  plan              SubscriptionPlan          @relation(fields: [planId], references: [id], onDelete: Restrict)
+  provider          PaymentProvider           @default(PAYSTACK)
+  status            SubscriptionPaymentStatus @default(PENDING)
+  billingCycle      BillingCycle              @map("billing_cycle")
+  amount            Decimal                   @db.Decimal(14, 2)
+  currency          String                    @default("NGN")
+  reference         String                    @unique
+  providerReference String?                   @map("provider_reference")
+  authorizationUrl  String?                   @map("authorization_url")
+  paidAt            DateTime?                 @map("paid_at")
+  metadata          Json?
+  createdAt         DateTime                  @default(now()) @map("created_at")
+  updatedAt         DateTime                  @updatedAt @map("updated_at")
+
+  @@index([landlordId, status, createdAt])
+  @@index([subscriptionId, status])
+  @@index([planId])
+  @@map("subscription_payments")
 }
 
 model ActivityLog {

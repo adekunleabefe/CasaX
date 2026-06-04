@@ -1,6 +1,6 @@
 import { Injectable, Logger } from '@nestjs/common';
 import { ConfigService } from '@nestjs/config';
-import { EmailLogStatus, EmailType } from '@prisma/client';
+import { EmailLogStatus, EmailType, UserRole } from '@prisma/client';
 import { PrismaService } from '../../prisma/prisma.service';
 import { EmailMessage, EmailProvider } from './email.types';
 import { DevEmailProvider } from './providers/dev-email.provider';
@@ -19,6 +19,7 @@ export interface TenantInvitationEmail {
 export interface VerificationEmail {
   email: string;
   name: string;
+  role: UserRole;
   token: string;
 }
 
@@ -31,6 +32,12 @@ export interface PasswordResetEmail {
 export interface PasswordResetSuccessEmail {
   email: string;
   name: string;
+}
+
+export interface LandlordInvitationEmail {
+  email: string;
+  name: string;
+  token: string;
 }
 
 export interface AgreementGeneratedEmail {
@@ -64,7 +71,7 @@ export class EmailService {
   ) {}
 
   sendVerificationEmail(input: VerificationEmail): Promise<EmailResult> {
-    const verificationUrl = this.appLink('/auth/verify-email', input.token);
+    const verificationUrl = this.verificationLink(input.role, input.token);
     const rendered = renderCasaXEmail({
       eyebrow: 'CasaX verification',
       title: 'Verify your email address',
@@ -178,6 +185,33 @@ export class EmailService {
     });
   }
 
+  sendLandlordInvitation(
+    input: LandlordInvitationEmail,
+  ): Promise<EmailResult> {
+    const setupUrl = this.appLink('/auth/setup-account', input.token);
+    const rendered = renderCasaXEmail({
+      eyebrow: 'CasaX landlord onboarding',
+      title: 'Set up your CasaX landlord workspace',
+      intro: `Hello ${input.name}, CasaX has invited you to activate your managed property operations workspace.`,
+      details: [
+        'Use this secure link to set your password.',
+        'After activation, you can submit properties and monitor CasaX-managed operations.',
+      ],
+      cta: { label: 'Set up your CasaX account', url: setupUrl },
+      footerNote:
+        'This setup link is time-limited and can only be used once.',
+    });
+    return this.dispatch({
+      to: input.email,
+      subject: 'Set up your CasaX landlord workspace',
+      type: EmailType.ACCOUNT_SETUP,
+      bodyPreview: `Hello ${input.name}, activate your CasaX landlord workspace with this secure setup link.`,
+      metadata: { purpose: 'landlord_invitation' },
+      importantLinks: [{ label: 'Set up your CasaX account', url: setupUrl }],
+      ...rendered,
+    });
+  }
+
   sendTenancyAgreementGeneratedEmail(
     input: AgreementGeneratedEmail,
   ): Promise<EmailResult> {
@@ -256,6 +290,43 @@ export class EmailService {
       'http://localhost:3001',
     );
     const url = new URL(path, appUrl);
+    url.searchParams.set('token', token);
+    return url.toString();
+  }
+
+  private verificationLink(role: UserRole, token: string): string {
+    if (role === UserRole.APPLICANT) {
+      return this.linkFromConfig(
+        'WEB_URL',
+        'http://localhost:3000',
+        '/auth/verify-email',
+        token,
+      );
+    }
+    if (role === UserRole.ADMIN) {
+      return this.linkFromConfig(
+        'ADMIN_URL',
+        'http://localhost:3002',
+        '/auth/verify-email',
+        token,
+      );
+    }
+    return this.linkFromConfig(
+      'APP_URL',
+      'http://localhost:3001',
+      '/auth/verify-email',
+      token,
+    );
+  }
+
+  private linkFromConfig(
+    configKey: string,
+    fallback: string,
+    path: string,
+    token: string,
+  ): string {
+    const baseUrl = this.configService.get<string>(configKey, fallback);
+    const url = new URL(path, baseUrl);
     url.searchParams.set('token', token);
     return url.toString();
   }

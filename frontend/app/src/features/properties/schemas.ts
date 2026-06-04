@@ -7,6 +7,26 @@ export const propertySchema = z.object({
   state: z.string().trim().min(2, "Enter a state.").max(100),
   type: z.string().trim().min(2, "Select or enter a property type.").max(100),
   status: z.enum(["active", "inactive"]),
+  unitMix: z
+    .array(
+      z.object({
+        unitType: z.string().trim().min(2, "Enter a unit type.").max(80),
+        quantity: z.coerce
+          .number()
+          .int("Quantity must be a whole number.")
+          .min(1, "Enter at least one unit."),
+        annualRent: z.coerce
+          .number()
+          .min(0, "Annual rent cannot be negative."),
+        unitNamingPrefix: z
+          .string()
+          .trim()
+          .max(40, "Keep the naming prefix short.")
+          .optional()
+          .transform((value) => value || undefined),
+      }),
+    )
+    .optional(),
 });
 
 export const unitSchema = z.object({

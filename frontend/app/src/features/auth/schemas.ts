@@ -8,7 +8,6 @@ export const loginSchema = z.object({
 export const registerSchema = loginSchema.extend({
   firstName: z.string().trim().min(1, "Enter your first name.").max(80),
   lastName: z.string().trim().min(1, "Enter your last name.").max(80),
-  role: z.enum(["LANDLORD", "APPLICANT"]),
 });
 
 export const recoverySchema = z.object({
