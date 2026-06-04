@@ -25,8 +25,8 @@ import { ApiError, recoverFromUnauthorized } from "@/services/api";
 import { logout } from "@/services/auth";
 
 const ADMIN_URL =
-  process.env.NEXT_PUBLIC_ADMIN_URL ?? "http://localhost:3002/dashboard";
-const WEB_URL = (process.env.NEXT_PUBLIC_WEB_URL ?? "http://localhost:3000").replace(
+  process.env.NEXT_PUBLIC_ADMIN_URL ?? "https://admin.casax.ng/dashboard";
+const WEB_URL = (process.env.NEXT_PUBLIC_WEB_URL ?? "https://casax.ng").replace(
   /\/$/,
   "",
 );

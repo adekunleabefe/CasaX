@@ -1,5 +1,5 @@
 const apiBaseUrl = (
-  process.env.NEXT_PUBLIC_API_URL ?? "http://localhost:4000/api/v1"
+  process.env.NEXT_PUBLIC_API_URL ?? "https://api.casax.ng/api/v1"
 ).replace(/\/$/, "");
 const apiAssetOrigin = apiBaseUrl.replace(/\/api\/v\d+\/?$/, "");
 
@@ -119,7 +119,7 @@ export function getRentalBySlug(slug: string) {
 }
 
 export function authHandoffUrl(intent: "inspection" | "apply" | "save", slug: string) {
-  const url = new URL("/auth", process.env.NEXT_PUBLIC_WEB_URL ?? "http://localhost:3000");
+  const url = new URL("/auth", process.env.NEXT_PUBLIC_WEB_URL ?? "https://casax.ng");
   url.searchParams.set("intent", intent);
   url.searchParams.set("rental", slug);
   url.searchParams.set("next", `/rentals/${slug}`);

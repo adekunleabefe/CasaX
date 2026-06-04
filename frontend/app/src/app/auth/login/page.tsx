@@ -14,7 +14,7 @@ import { login } from "@/services/auth";
 
 type LoginValues = z.infer<typeof loginSchema>;
 const WEB_AUTH_URL =
-  (process.env.NEXT_PUBLIC_WEB_URL ?? "http://localhost:3000") + "/auth/sign-up";
+  (process.env.NEXT_PUBLIC_WEB_URL ?? "https://casax.ng") + "/auth/sign-up";
 
 export default function LoginPage() {
   return (

@@ -24,7 +24,7 @@ import { Badge, Button, Card, Logo } from "@casax/ui";
 import { ApiError, recoverFromUnauthorized } from "@/services/api";
 import { getCurrentUser, logout } from "@/services/auth";
 
-const APP_URL = process.env.NEXT_PUBLIC_APP_URL ?? "http://localhost:3001";
+const APP_URL = process.env.NEXT_PUBLIC_APP_URL ?? "https://app.casax.ng";
 
 const navigation = [
   { label: "Dashboard", href: "/dashboard", icon: LayoutDashboard },

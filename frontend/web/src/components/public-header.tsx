@@ -20,7 +20,7 @@ import { useCurrentApplicant } from "@/lib/applicant-queries";
 import { logout } from "@/lib/auth";
 
 const APP_LOGIN_URL = `${(
-  process.env.NEXT_PUBLIC_APP_URL ?? "http://localhost:3001"
+  process.env.NEXT_PUBLIC_APP_URL ?? "https://app.casax.ng"
 ).replace(/\/$/, "")}/auth/login`;
 
 export function PublicHeader() {

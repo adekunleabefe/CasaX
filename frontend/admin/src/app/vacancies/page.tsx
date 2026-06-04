@@ -18,7 +18,7 @@ import {
   type AdminVacancyStatus,
 } from "@/services/operations";
 
-const WEB_URL = (process.env.NEXT_PUBLIC_WEB_URL ?? "http://localhost:3000").replace(
+const WEB_URL = (process.env.NEXT_PUBLIC_WEB_URL ?? "https://casax.ng").replace(
   /\/$/,
   "",
 );

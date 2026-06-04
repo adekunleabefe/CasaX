@@ -16,7 +16,7 @@ import { ApiError, recoverFromUnauthorized } from "@/lib/api";
 import { useCurrentApplicant } from "@/lib/applicant-queries";
 import { logout } from "@/lib/auth";
 
-const APP_URL = process.env.NEXT_PUBLIC_APP_URL ?? "http://localhost:3001";
+const APP_URL = process.env.NEXT_PUBLIC_APP_URL ?? "https://app.casax.ng";
 
 export function AccountShell({ children }: { children: ReactNode }) {
   const router = useRouter();

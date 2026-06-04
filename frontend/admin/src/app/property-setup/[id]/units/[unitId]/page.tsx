@@ -632,7 +632,7 @@ function listToText(value?: string[] | null) {
 function absoluteImageUrl(value: string) {
   if (value.startsWith("http")) return value;
   const apiUrl =
-    process.env.NEXT_PUBLIC_API_URL ?? "http://localhost:4000/api/v1";
+    process.env.NEXT_PUBLIC_API_URL ?? "https://api.casax.ng/api/v1";
   return `${apiUrl.replace(/\/api\/v1\/?$/, "")}${value}`;
 }
 
